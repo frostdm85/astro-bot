@@ -102,13 +102,57 @@ def datetime_to_julian(dt: datetime, timezone_hours: float = 0) -> float:
     Returns:
         Julian Day number
     """
-    # Переводим в UT
+    # Переводим в UT (Universal Time)
     hour_decimal = dt.hour + dt.minute / 60.0 + dt.second / 3600.0 - timezone_hours
 
+    year = dt.year
+    month = dt.month
+    day = dt.day
+
+    # Корректируем если hour_decimal вышел за пределы суток
+    while hour_decimal < 0:
+        hour_decimal += 24
+        day -= 1
+        if day < 1:
+            month -= 1
+            if month < 1:
+                month = 12
+                year -= 1
+            # Определяем количество дней в предыдущем месяце
+            if month in [1, 3, 5, 7, 8, 10, 12]:
+                day = 31
+            elif month in [4, 6, 9, 11]:
+                day = 30
+            elif month == 2:
+                if (year % 4 == 0 and year % 100 != 0) or (year % 400 == 0):
+                    day = 29
+                else:
+                    day = 28
+
+    while hour_decimal >= 24:
+        hour_decimal -= 24
+        day += 1
+        # Определяем количество дней в текущем месяце
+        if month in [1, 3, 5, 7, 8, 10, 12]:
+            days_in_month = 31
+        elif month in [4, 6, 9, 11]:
+            days_in_month = 30
+        elif month == 2:
+            if (year % 4 == 0 and year % 100 != 0) or (year % 400 == 0):
+                days_in_month = 29
+            else:
+                days_in_month = 28
+        if day > days_in_month:
+            day = 1
+            month += 1
+            if month > 12:
+                month = 1
+                year += 1
+
     jd = swe.julday(
-        dt.year,
-        dt.month,
-        dt.day,
+        year,
+        month,
+        day,
         hour_decimal,
         swe.GREG_CAL
     )

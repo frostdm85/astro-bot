@@ -233,8 +233,13 @@ async def get_natal_chart_api(user_id: int):
         # Получаем дату рождения (уже date объект из БД)
         birth_date = user.birth_date
         birth_time = str(user.birth_time)[:8] if user.birth_time else "12:00:00"
+        # Используем координаты места РОЖДЕНИЯ (не проживания!)
         lat = user.birth_lat or 55.7558
         lon = user.birth_lon or 37.6173
+
+        # Timezone места рождения
+        from services.geocoder import get_timezone_offset
+        birth_tz_hours = get_timezone_offset(user.birth_tz or "Europe/Moscow", birth_date)
 
         # Получаем позиции планет (get_natal_chart возвращает Dict[int, PlanetPosition])
         natal_positions = get_natal_chart(
@@ -242,7 +247,7 @@ async def get_natal_chart_api(user_id: int):
             birth_time,
             lat,
             lon,
-            timezone_hours=3.0  # MSK
+            timezone_hours=birth_tz_hours
         )
 
         # Формируем points для AstrologyChart2
@@ -270,19 +275,53 @@ async def get_natal_chart_api(user_id: int):
                 "isRetrograde": pos.is_retrograde,
             })
 
-        # Получаем куспиды домов (нужен Julian Day)
+        # Получаем куспиды домов (нужен Julian Day) - система Koch
         time_parts = birth_time.split(":")
         hour = int(time_parts[0])
         minute = int(time_parts[1]) if len(time_parts) > 1 else 0
         birth_dt = datetime(birth_date.year, birth_date.month, birth_date.day, hour, minute)
-        jd = datetime_to_julian(birth_dt, timezone_hours=3.0)
+        jd = datetime_to_julian(birth_dt, timezone_hours=birth_tz_hours)
 
-        houses = calculate_houses(jd, lat, lon)
+        # Рассчитываем дома по системе Коха с координатами места РОЖДЕНИЯ (натальная карта)
+        houses = calculate_houses(jd, lat, lon, house_system='K')
         cusps = [{"angle": round(houses.cusps[i], 2)} for i in range(12)]
+
+        # Рассчитываем аспекты между планетами
+        from services.astro_engine import calculate_natal_aspects
+
+        # Формируем planets_data для расчёта аспектов
+        from services.astro_engine import get_planet_house
+        planets_data = {}
+        for planet_id, pos in natal_positions.items():
+            house_num = get_planet_house(pos.longitude, houses.cusps)
+            planets_data[pos.name] = {
+                'longitude': pos.longitude,
+                'speed': getattr(pos, 'speed', 0),
+                'retro': pos.is_retrograde,
+                'house': house_num,
+                'symbol': pos.symbol if hasattr(pos, 'symbol') else '',
+                'rules': [],
+            }
+
+        natal_aspects = calculate_natal_aspects(planets_data, cusps=houses.cusps)
+
+        # Форматируем аспекты для AstrologyChart2
+        aspects_for_chart = []
+        for asp in natal_aspects:
+            if not asp.get('is_cusp_aspect', False):  # Только аспекты между планетами
+                aspects_for_chart.append({
+                    "point1": planet_names_map.get(asp['planet1'], asp['planet1']),
+                    "point2": planet_names_map.get(asp['planet2'], asp['planet2']),
+                    "aspect": asp['angle'],  # 0, 60, 90, 120, 180
+                    "orb": round(asp['orb'], 2),
+                    "symbol": asp.get('symbol', ''),
+                    "nature": asp.get('nature', ''),  # +, -, ±
+                })
 
         return {
             "points": points,
             "cusps": cusps,
+            "aspects": aspects_for_chart,
             "user": {
                 "name": user.first_name or "Пользователь",
                 "birth_date": user.birth_date,

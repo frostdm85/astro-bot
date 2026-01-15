@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Астро-прогноз</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" href="/webapp/css/style.css?v=17">
+    <link rel="stylesheet" href="/webapp/css/style.css?v=20">
 </head>
 <body>
     <!-- ============== ЭКРАН ЗАГРУЗКИ ============== -->
@@ -997,7 +997,7 @@
             // Очищаем контейнер для карты
             chartPaper.innerHTML = '';
 
-            // Настройки карты
+            // Настройки карты (белый фон, система Кох)
             const settings = {
                 CHART_PADDING: 10,
                 CHART_VIEWBOX_WIDTH: 400,
@@ -1005,21 +1005,45 @@
                 RADIX_POINTS_FONT_SIZE: 14,
                 RADIX_SIGNS_FONT_SIZE: 12,
                 RADIX_AXIS_FONT_SIZE: 10,
-                COLOR_BACKGROUND: 'transparent',
-                COLOR_SIGNS_BACKGROUND: 'rgba(139, 92, 246, 0.1)',
-                COLOR_POINTS_BACKGROUND: 'rgba(30, 30, 60, 0.8)',
-                COLOR_HOUSE_LINES: 'rgba(139, 92, 246, 0.3)',
-                COLOR_AXIS_LINE: 'rgba(139, 92, 246, 0.6)',
-                COLOR_SIGNS_LINE: 'rgba(139, 92, 246, 0.4)',
-                COLOR_SIGNS_SYMBOL: 'rgba(255, 255, 255, 0.8)',
-                COLOR_POINTS_SYMBOL: '#ffffff',
-                COLOR_RETROGRADE_SYMBOL: '#f59e0b',
+                COLOR_BACKGROUND: '#ffffff',
+                COLOR_SIGNS_BACKGROUND: 'rgba(139, 92, 246, 0.15)',
+                COLOR_POINTS_BACKGROUND: 'rgba(245, 245, 250, 0.95)',
+                COLOR_HOUSE_LINES: 'rgba(100, 100, 120, 0.3)',
+                COLOR_AXIS_LINE: 'rgba(139, 92, 246, 0.7)',
+                COLOR_SIGNS_LINE: 'rgba(100, 100, 120, 0.4)',
+                COLOR_SIGNS_SYMBOL: '#333333',
+                COLOR_POINTS_SYMBOL: '#1a1a2e',
+                COLOR_RETROGRADE_SYMBOL: '#dc2626',
+                // Аспекты
+                DRAW_ASPECTS: true,
+                DEFAULT_ASPECTS: [
+                    {name: "Conjunction", angle: 0, orb: 8.5},
+                    {name: "Sextile", angle: 60, orb: 8.5},
+                    {name: "Square", angle: 90, orb: 8.5},
+                    {name: "Trine", angle: 120, orb: 8.5},
+                    {name: "Opposition", angle: 180, orb: 8.5},
+                ],
+                COLOR_ASPECT_CONJUNCTION: '#8b5cf6',  // Соединение - фиолетовый
+                COLOR_ASPECT_SEXTILE: '#22c55e',      // Секстиль - зелёный
+                COLOR_ASPECT_SQUARE: '#ef4444',       // Квадратура - красный
+                COLOR_ASPECT_TRINE: '#3b82f6',        // Тригон - синий
+                COLOR_ASPECT_OPPOSITION: '#ef4444',   // Оппозиция - красный
             };
 
             // Создаём карту
             const universe = new astrology.Universe('chartPaper', settings);
             natalChartInstance = universe.radix();
             natalChartInstance.setData(data);
+
+            // Рисуем аспекты вручную с нашими орбисами
+            const aspectsConfig = [
+                {name: "Conjunction", angle: 0, orb: 8.5},
+                {name: "Sextile", angle: 60, orb: 8.5},
+                {name: "Square", angle: 90, orb: 8.5},
+                {name: "Trine", angle: 120, orb: 8.5},
+                {name: "Opposition", angle: 180, orb: 8.5},
+            ];
+            natalChartInstance.drawAspects(data.points, data.points, aspectsConfig);
 
             // Создаём легенду
             const planetRu = {

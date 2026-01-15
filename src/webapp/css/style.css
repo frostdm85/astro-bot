@@ -3,6 +3,15 @@
    Элегантный интерактивный интерфейс
    ============================================ */
 
+/* Шрифт для астрологических символов */
+@font-face {
+    font-family: 'Astronomicon';
+    src: url('/static/fonts/Astronomicon.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
 :root {
     --bg-color: #0f0f1a;
     --bg-gradient: linear-gradient(180deg, #0f0f1a 0%, #1a1a2e 100%);
@@ -1915,7 +1924,7 @@ body {
 }
 
 .chart-paper {
-    background: linear-gradient(135deg, rgba(30, 30, 60, 0.95) 0%, rgba(20, 20, 45, 0.98) 100%);
+    background: #ffffff;
     border-radius: 16px;
     padding: 16px;
     min-height: 350px;
