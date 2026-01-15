@@ -69,14 +69,6 @@
                 </div>
             </button>
 
-            <button class="menu-item" id="btnNatalChart">
-                <span class="menu-icon">🌌</span>
-                <div class="menu-label-group">
-                    <span class="menu-label">Натальная карта</span>
-                    <span class="menu-desc">Ваша карта рождения</span>
-                </div>
-            </button>
-
             <button class="menu-item" id="btnSettings">
                 <span class="menu-icon">⚙️</span>
                 <div class="menu-label-group">
@@ -92,6 +84,18 @@
                     <span class="menu-desc">Связь с астрологом</span>
                 </div>
             </button>
+        </div>
+
+        <!-- Блок Натальной карты -->
+        <div class="natal-widget">
+            <div class="natal-widget-header">
+                <span class="natal-widget-icon">🌌</span>
+                <span class="natal-widget-title">Натальная карта</span>
+            </div>
+            <div class="natal-widget-content">
+                <div id="menuChartPaper" class="menu-chart-paper"></div>
+                <div id="menuChartLegend" class="menu-chart-legend"></div>
+            </div>
         </div>
 
         <!-- Блок Луны -->
@@ -521,6 +525,8 @@
             showScreen('menu');
             // Загружаем данные пользователя для блока "Ваши данные" на главном меню
             loadSettings();
+            // Загружаем натальную карту на главной
+            loadMenuNatalChart();
             // Загружаем информацию о Луне
             loadMoonInfo();
             // Загружаем информацию о ретроградах
@@ -553,11 +559,12 @@
             haptic('light');
         };
 
-        document.getElementById('btnNatalChart').onclick = () => {
+        // Клик по виджету натальной карты открывает полный экран
+        document.querySelector('.natal-widget')?.addEventListener('click', () => {
             showScreen('natalChart');
             loadNatalChart();
             haptic('light');
-        };
+        });
 
         // Мини-календарь на главной
         document.getElementById('menuCalPrev').onclick = async () => {
@@ -963,7 +970,100 @@
         }
     }
 
-    // ============== НАТАЛЬНАЯ КАРТА ==============
+    // ============== НАТАЛЬНАЯ КАРТА (ВИДЖЕТ НА МЕНЮ) ==============
+
+    let menuChartInstance = null;
+
+    async function loadMenuNatalChart() {
+        const chartPaper = document.getElementById('menuChartPaper');
+        const chartLegend = document.getElementById('menuChartLegend');
+
+        if (!chartPaper) return;
+
+        chartPaper.innerHTML = '<div class="chart-loading"><div class="loader-small"></div><span>Строю карту...</span></div>';
+        chartLegend.innerHTML = '';
+
+        try {
+            const response = await fetch(`/api/natal-chart/${userId}`);
+            if (!response.ok) {
+                chartPaper.innerHTML = '<div class="chart-error">Не удалось загрузить карту</div>';
+                return;
+            }
+
+            const data = await response.json();
+            chartPaper.innerHTML = '';
+
+            // Настройки карты для виджета (компактнее)
+            const settings = {
+                CHART_PADDING: 5,
+                CHART_VIEWBOX_WIDTH: 320,
+                CHART_VIEWBOX_HEIGHT: 320,
+                RADIX_POINTS_FONT_SIZE: 12,
+                RADIX_SIGNS_FONT_SIZE: 10,
+                RADIX_AXIS_FONT_SIZE: 8,
+                COLOR_BACKGROUND: '#ffffff',
+                COLOR_SIGNS_BACKGROUND: 'rgba(139, 92, 246, 0.15)',
+                COLOR_POINTS_BACKGROUND: 'rgba(245, 245, 250, 0.95)',
+                COLOR_HOUSE_LINES: 'rgba(100, 100, 120, 0.3)',
+                COLOR_AXIS_LINE: 'rgba(139, 92, 246, 0.7)',
+                COLOR_SIGNS_LINE: 'rgba(100, 100, 120, 0.4)',
+                COLOR_SIGNS_SYMBOL: '#333333',
+                COLOR_POINTS_SYMBOL: '#1a1a2e',
+                COLOR_RETROGRADE_SYMBOL: '#dc2626',
+                DRAW_ASPECTS: true,
+                COLOR_ASPECT_CONJUNCTION: '#8b5cf6',
+                COLOR_ASPECT_SEXTILE: '#22c55e',
+                COLOR_ASPECT_SQUARE: '#ef4444',
+                COLOR_ASPECT_TRINE: '#3b82f6',
+                COLOR_ASPECT_OPPOSITION: '#ef4444',
+            };
+
+            const universe = new astrology.Universe('menuChartPaper', settings);
+            menuChartInstance = universe.radix();
+            menuChartInstance.setData(data);
+
+            // Рисуем аспекты
+            const aspectsConfig = [
+                {name: "Conjunction", angle: 0, orb: 8.5},
+                {name: "Sextile", angle: 60, orb: 8.5},
+                {name: "Square", angle: 90, orb: 8.5},
+                {name: "Trine", angle: 120, orb: 8.5},
+                {name: "Opposition", angle: 180, orb: 8.5},
+            ];
+            menuChartInstance.drawAspects(data.points, data.points, aspectsConfig);
+
+            // Краткая легенда с позициями планет
+            const signSymbols = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l'];
+            const planetSymbols = {
+                'Sun': 'A', 'Moon': 'B', 'Mercury': 'C', 'Venus': 'D', 'Mars': 'E',
+                'Jupiter': 'F', 'Saturn': 'G', 'Uranus': 'H', 'Neptune': 'I', 'Pluto': 'J',
+                'NNode': 'K', 'Lilith': 'L'
+            };
+
+            let legendHtml = '';
+            for (const point of data.points) {
+                const signIndex = Math.floor(point.angle / 30);
+                const degreeInSign = Math.floor(point.angle % 30);
+                const symbol = planetSymbols[point.name] || '?';
+                const signSym = signSymbols[signIndex];
+                const retro = point.isRetrograde ? '℞' : '';
+
+                legendHtml += `
+                    <div class="menu-legend-item">
+                        <span class="menu-legend-symbol">${symbol}</span>
+                        <span class="menu-legend-deg">${degreeInSign}°${signSym}${retro}</span>
+                    </div>
+                `;
+            }
+            chartLegend.innerHTML = legendHtml;
+
+        } catch (e) {
+            console.error('Ошибка загрузки натальной карты:', e);
+            chartPaper.innerHTML = '<div class="chart-error">Ошибка загрузки</div>';
+        }
+    }
+
+    // ============== НАТАЛЬНАЯ КАРТА (ЭКРАН) ==============
 
     let natalChartInstance = null;
 
