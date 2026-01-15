@@ -187,7 +187,7 @@ def get_planet_position(planet_id: int, jd: float) -> PlanetPosition:
     degree_in_sign = longitude % 30
 
     # Имя и символ планеты
-    name, symbol = PLANETS.get(planet_id, (f"Planet_{planet_id}", "?"))
+    name, symbol = PLANETS_ALL.get(planet_id, (f"Planet_{planet_id}", "?"))
 
     return PlanetPosition(
         planet_id=planet_id,
@@ -246,7 +246,7 @@ def get_natal_chart(
     jd = datetime_to_julian(dt, timezone_hours)
 
     natal = {}
-    for planet_id in PLANETS.keys():
+    for planet_id in PLANETS_ALL.keys():
         natal[planet_id] = get_planet_position(planet_id, jd)
 
     return natal
@@ -269,7 +269,7 @@ def get_transits(
     jd = datetime_to_julian(transit_date, timezone_hours)
 
     transits = {}
-    for planet_id in PLANETS.keys():
+    for planet_id in PLANETS_ALL.keys():
         transits[planet_id] = get_planet_position(planet_id, jd)
 
     return transits
