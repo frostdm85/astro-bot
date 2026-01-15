@@ -854,6 +854,8 @@ body {
 
 /* ============== АДАПТАЦИЯ ПОД TG ТЕМУ ============== */
 
+/* ============== АДАПТАЦИЯ ПОД TG ТЕМУ ============== */
+
 @media (prefers-color-scheme: light) {
     :root {
         --bg-color: #f5f5f7;
@@ -863,6 +865,51 @@ body {
         --text-color: #1a1a2e;
         --text-secondary: #6b6b80;
     }
+}
+
+/* Ретрограды - светлая тема Telegram */
+body.tg-light .retrograde-widget {
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+
+body.tg-light .retrograde-header {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+body.tg-light .retrograde-title,
+body.tg-light .retrograde-year,
+body.tg-light .retrograde-icon {
+    color: #1a1a2e;
+}
+
+body.tg-light .planet-name {
+    color: #1a1a2e;
+}
+
+body.tg-light .planet-symbol {
+    color: #6b6b80;
+}
+
+body.tg-light .retrograde-planet {
+    background: rgba(0, 0, 0, 0.03);
+}
+
+body.tg-light .period-dates {
+    color: #1a1a2e;
+}
+
+body.tg-light .period-duration {
+    color: #6b6b80;
+}
+
+body.tg-light .no-periods {
+    color: #6b6b80;
+}
+
+body.tg-light .status-label {
+    color: #1a1a2e;
 }
 
 /* ============== RIPPLE ЭФФЕКТ ============== */

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Астро-прогноз</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" href="/webapp/css/style.css?v=20">
+    <link rel="stylesheet" href="/webapp/css/style.css?v=28">
 </head>
 <body>
     <!-- ============== ЭКРАН ЗАГРУЗКИ ============== -->
@@ -479,6 +479,14 @@
             tg.ready();
             tg.expand();
             tg.enableClosingConfirmation();
+
+            // Тема Telegram
+            if (tg.colorScheme === 'light') {
+                document.body.classList.add('tg-light');
+            }
+            tg.onEvent('themeChanged', () => {
+                document.body.classList.toggle('tg-light', tg.colorScheme === 'light');
+            });
         }
 
         if (!userId) {
