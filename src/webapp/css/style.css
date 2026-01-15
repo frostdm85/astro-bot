@@ -1883,3 +1883,125 @@ body {
     color: rgba(255, 255, 255, 0.4);
     font-style: italic;
 }
+
+/* ============== ЭКРАН НАТАЛЬНОЙ КАРТЫ ============== */
+
+.natal-chart-container {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.chart-user-info {
+    text-align: center;
+    padding: 12px;
+    background: var(--card-bg);
+    border-radius: 12px;
+    border: 1px solid var(--card-border);
+}
+
+.chart-user-name {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-color);
+    margin-bottom: 4px;
+}
+
+.chart-user-details {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+.chart-paper {
+    background: linear-gradient(135deg, rgba(30, 30, 60, 0.95) 0%, rgba(20, 20, 45, 0.98) 100%);
+    border-radius: 16px;
+    padding: 16px;
+    min-height: 350px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.chart-paper svg {
+    width: 100%;
+    height: auto;
+    max-width: 380px;
+}
+
+.chart-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.chart-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    text-align: center;
+    padding: 20px;
+}
+
+.chart-error .error-icon {
+    font-size: 32px;
+}
+
+.chart-error .error-text {
+    font-size: 16px;
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: 500;
+}
+
+.chart-error .error-hint {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.chart-legend {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 16px;
+    border: 1px solid var(--card-border);
+}
+
+.legend-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-color);
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.legend-items {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+}
+
+.legend-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 10px;
+    background: rgba(139, 92, 246, 0.05);
+    border-radius: 8px;
+    font-size: 12px;
+}
+
+.legend-planet {
+    color: var(--text-color);
+    font-weight: 500;
+}
+
+.legend-position {
+    color: var(--text-secondary);
+    font-family: monospace;
+}

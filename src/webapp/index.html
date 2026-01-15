@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Астро-прогноз</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" href="/webapp/css/style.css?v=16">
+    <link rel="stylesheet" href="/webapp/css/style.css?v=17">
 </head>
 <body>
     <!-- ============== ЭКРАН ЗАГРУЗКИ ============== -->
@@ -66,6 +66,14 @@
                 <div class="menu-label-group">
                     <span class="menu-label">Прогноз на сегодня</span>
                     <span class="menu-desc">Подробный анализ дня</span>
+                </div>
+            </button>
+
+            <button class="menu-item" id="btnNatalChart">
+                <span class="menu-icon">🌌</span>
+                <div class="menu-label-group">
+                    <span class="menu-label">Натальная карта</span>
+                    <span class="menu-desc">Ваша карта рождения</span>
                 </div>
             </button>
 
@@ -383,6 +391,31 @@
         </div>
     </div>
 
+    <!-- ============== ЭКРАН НАТАЛЬНОЙ КАРТЫ ============== -->
+    <div id="natalChart" class="screen">
+        <div class="screen-header">
+            <button class="back-btn" id="natalChartBack" aria-label="Назад в меню">←</button>
+            <div class="header-title">Натальная карта</div>
+            <div class="header-spacer"></div>
+        </div>
+
+        <div class="natal-chart-container">
+            <div class="chart-user-info" id="chartUserInfo">
+                <!-- Информация о пользователе -->
+            </div>
+            <div id="chartPaper" class="chart-paper">
+                <div class="chart-loading">
+                    <div class="loader-small"></div>
+                    <span>Строю карту...</span>
+                </div>
+            </div>
+            <div class="chart-legend" id="chartLegend">
+                <!-- Легенда планет -->
+            </div>
+        </div>
+    </div>
+
+    <script src="/webapp/js/astrochart2.js"></script>
     <script>
     /**
      * АСТРО-БОТ MINI APP
@@ -520,6 +553,12 @@
             haptic('light');
         };
 
+        document.getElementById('btnNatalChart').onclick = () => {
+            showScreen('natalChart');
+            loadNatalChart();
+            haptic('light');
+        };
+
         // Мини-календарь на главной
         document.getElementById('menuCalPrev').onclick = async () => {
             currentCalendarMonth.setMonth(currentCalendarMonth.getMonth() - 1);
@@ -550,6 +589,11 @@
         };
 
         document.getElementById('supportBack').onclick = () => {
+            showScreen('menu');
+            haptic('light');
+        };
+
+        document.getElementById('natalChartBack').onclick = () => {
             showScreen('menu');
             haptic('light');
         };
@@ -916,6 +960,107 @@
             }
         } catch (e) {
             console.error('Ошибка загрузки ретроградов:', e);
+        }
+    }
+
+    // ============== НАТАЛЬНАЯ КАРТА ==============
+
+    let natalChartInstance = null;
+
+    async function loadNatalChart() {
+        const chartPaper = document.getElementById('chartPaper');
+        const chartUserInfo = document.getElementById('chartUserInfo');
+        const chartLegend = document.getElementById('chartLegend');
+
+        // Показываем загрузку
+        chartPaper.innerHTML = '<div class="chart-loading"><div class="loader-small"></div><span>Строю карту...</span></div>';
+        chartUserInfo.innerHTML = '';
+        chartLegend.innerHTML = '';
+
+        try {
+            const response = await fetch(`/api/natal-chart/${userId}`);
+            if (!response.ok) {
+                throw new Error('Не удалось загрузить данные карты');
+            }
+
+            const data = await response.json();
+
+            // Показываем информацию о пользователе
+            chartUserInfo.innerHTML = `
+                <div class="chart-user-name">${data.user.name}</div>
+                <div class="chart-user-details">
+                    ${data.user.birth_date} ${data.user.birth_time || ''}<br>
+                    ${data.user.birth_place || ''}
+                </div>
+            `;
+
+            // Очищаем контейнер для карты
+            chartPaper.innerHTML = '';
+
+            // Настройки карты
+            const settings = {
+                CHART_PADDING: 10,
+                CHART_VIEWBOX_WIDTH: 400,
+                CHART_VIEWBOX_HEIGHT: 400,
+                RADIX_POINTS_FONT_SIZE: 14,
+                RADIX_SIGNS_FONT_SIZE: 12,
+                RADIX_AXIS_FONT_SIZE: 10,
+                COLOR_BACKGROUND: 'transparent',
+                COLOR_SIGNS_BACKGROUND: 'rgba(139, 92, 246, 0.1)',
+                COLOR_POINTS_BACKGROUND: 'rgba(30, 30, 60, 0.8)',
+                COLOR_HOUSE_LINES: 'rgba(139, 92, 246, 0.3)',
+                COLOR_AXIS_LINE: 'rgba(139, 92, 246, 0.6)',
+                COLOR_SIGNS_LINE: 'rgba(139, 92, 246, 0.4)',
+                COLOR_SIGNS_SYMBOL: 'rgba(255, 255, 255, 0.8)',
+                COLOR_POINTS_SYMBOL: '#ffffff',
+                COLOR_RETROGRADE_SYMBOL: '#f59e0b',
+            };
+
+            // Создаём карту
+            const universe = new astrology.Universe('chartPaper', settings);
+            natalChartInstance = universe.radix();
+            natalChartInstance.setData(data);
+
+            // Создаём легенду
+            const planetRu = {
+                'Sun': 'Солнце', 'Moon': 'Луна', 'Mercury': 'Меркурий',
+                'Venus': 'Венера', 'Mars': 'Марс', 'Jupiter': 'Юпитер',
+                'Saturn': 'Сатурн', 'Uranus': 'Уран', 'Neptune': 'Нептун',
+                'Pluto': 'Плутон', 'NNode': 'Сев.Узел', 'Lilith': 'Лилит'
+            };
+
+            const signRu = [
+                'Овен', 'Телец', 'Близнецы', 'Рак', 'Лев', 'Дева',
+                'Весы', 'Скорпион', 'Стрелец', 'Козерог', 'Водолей', 'Рыбы'
+            ];
+
+            let legendHtml = '<div class="legend-title">Положение планет</div><div class="legend-items">';
+            for (const point of data.points) {
+                const signIndex = Math.floor(point.angle / 30);
+                const degreeInSign = (point.angle % 30).toFixed(1);
+                const ruName = planetRu[point.name] || point.name;
+                const ruSign = signRu[signIndex];
+                const retroMark = point.isRetrograde ? ' ℞' : '';
+
+                legendHtml += `
+                    <div class="legend-item">
+                        <span class="legend-planet">${ruName}${retroMark}</span>
+                        <span class="legend-position">${degreeInSign}° ${ruSign}</span>
+                    </div>
+                `;
+            }
+            legendHtml += '</div>';
+            chartLegend.innerHTML = legendHtml;
+
+        } catch (e) {
+            console.error('Ошибка загрузки натальной карты:', e);
+            chartPaper.innerHTML = `
+                <div class="chart-error">
+                    <span class="error-icon">⚠️</span>
+                    <span class="error-text">Не удалось построить карту</span>
+                    <span class="error-hint">Проверьте, что введены данные рождения</span>
+                </div>
+            `;
         }
     }
 
