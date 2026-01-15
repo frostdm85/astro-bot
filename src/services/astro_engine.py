@@ -2189,15 +2189,6 @@ def get_full_moon_info(dt: datetime = None) -> Dict:
     }
 
 
-def julian_to_datetime(jd: float) -> datetime:
-    """Конвертация Julian Day в datetime."""
-    result = swe.revjul(jd)
-    year, month, day, hour_float = result
-    hours = int(hour_float)
-    minutes = int((hour_float - hours) * 60)
-    return datetime(year, month, day, hours, minutes)
-
-
 # ==============================================================================
 # РЕТРОГРАДНЫЕ ПЕРИОДЫ
 # ==============================================================================
