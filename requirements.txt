@@ -1,0 +1,38 @@
+# Telegram
+pyrofork>=2.3.0
+tgcrypto>=1.2.5
+
+# База данных
+peewee>=3.17.0
+
+# HTTP клиент
+aiohttp>=3.9.0
+
+# API для Mini App
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+
+# Планировщик
+apscheduler>=3.10.0
+
+# Астрология
+pyswisseph>=2.10.0
+
+# AI
+groq>=0.4.0
+
+# Text-to-Speech
+edge-tts>=6.1.0
+
+# Конфигурация
+python-dotenv>=1.0.0
+
+# Часовые пояса
+pytz>=2024.1
+timezonefinder>=6.2.0
+
+# Геокодинг
+geopy>=2.4.0
+
+# Платежи
+yookassa>=3.0.0

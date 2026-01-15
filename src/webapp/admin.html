@@ -1,0 +1,1457 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Астро-бот | Админка</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- Flatpickr для календаря -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/material_blue.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ru.js"></script>
+    <!-- IMask для маски ввода -->
+    <script src="https://cdn.jsdelivr.net/npm/imask@7.1.3/dist/imask.min.js"></script>
+    <style>
+        :root {
+            --tg-theme-bg-color: #ffffff;
+            --tg-theme-text-color: #000000;
+            --tg-theme-hint-color: #999999;
+            --tg-theme-link-color: #2481cc;
+            --tg-theme-button-color: #2481cc;
+            --tg-theme-button-text-color: #ffffff;
+            --tg-theme-secondary-bg-color: #f0f0f0;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--tg-theme-bg-color);
+            color: var(--tg-theme-text-color);
+            padding: 16px;
+            min-height: 100vh;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--tg-theme-secondary-bg-color);
+        }
+
+        .header h1 {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: var(--tg-theme-secondary-bg-color);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--tg-theme-button-color);
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--tg-theme-hint-color);
+            margin-top: 4px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .tab {
+            padding: 8px 16px;
+            border-radius: 20px;
+            background: var(--tg-theme-secondary-bg-color);
+            border: none;
+            font-size: 14px;
+            color: var(--tg-theme-text-color);
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+
+        .tab.active {
+            background: var(--tg-theme-button-color);
+            color: var(--tg-theme-button-text-color);
+        }
+
+        .search-box {
+            width: 100%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            border: 1px solid var(--tg-theme-secondary-bg-color);
+            background: var(--tg-theme-bg-color);
+            font-size: 16px;
+            margin-bottom: 16px;
+            color: var(--tg-theme-text-color);
+        }
+
+        .user-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .user-card {
+            background: var(--tg-theme-secondary-bg-color);
+            border-radius: 12px;
+            padding: 16px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .user-card:active {
+            transform: scale(0.98);
+        }
+
+        .user-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+        }
+
+        .user-name {
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .user-status {
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 12px;
+            background: #4caf50;
+            color: white;
+        }
+
+        .user-status.expired {
+            background: #f44336;
+        }
+
+        .user-status.nodata {
+            background: #ff9800;
+        }
+
+        .user-info {
+            font-size: 13px;
+            color: var(--tg-theme-hint-color);
+        }
+
+        /* Модальное окно */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .modal.active {
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding-top: 40px;
+        }
+
+        .modal-content {
+            background: var(--tg-theme-bg-color);
+            border-radius: 16px;
+            padding: 24px;
+            width: 100%;
+            max-width: 400px;
+            max-height: calc(100vh - 80px);
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h2 {
+            font-size: 18px;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--tg-theme-hint-color);
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            color: var(--tg-theme-hint-color);
+            margin-bottom: 6px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid var(--tg-theme-secondary-bg-color);
+            font-size: 16px;
+            background: var(--tg-theme-bg-color);
+            color: var(--tg-theme-text-color);
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--tg-theme-button-color);
+        }
+
+        .form-group .hint {
+            font-size: 11px;
+            color: var(--tg-theme-hint-color);
+            margin-top: 4px;
+        }
+
+        /* Автокомплит для городов */
+        .city-autocomplete {
+            position: relative;
+        }
+
+        .city-suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: var(--tg-theme-bg-color);
+            border: 1px solid var(--tg-theme-secondary-bg-color);
+            border-radius: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 100;
+            display: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .city-suggestions.active {
+            display: block;
+        }
+
+        .city-suggestion {
+            padding: 12px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--tg-theme-secondary-bg-color);
+        }
+
+        .city-suggestion:last-child {
+            border-bottom: none;
+        }
+
+        .city-suggestion:hover, .city-suggestion.selected {
+            background: var(--tg-theme-secondary-bg-color);
+        }
+
+        .city-suggestion .city-name {
+            font-weight: 500;
+        }
+
+        .city-suggestion .city-details {
+            font-size: 12px;
+            color: var(--tg-theme-hint-color);
+            margin-top: 2px;
+        }
+
+        .city-loading {
+            padding: 12px;
+            text-align: center;
+            color: var(--tg-theme-hint-color);
+        }
+
+        /* Выбранный город */
+        .selected-city {
+            background: var(--tg-theme-secondary-bg-color);
+            padding: 8px 12px;
+            border-radius: 8px;
+            margin-top: 8px;
+            font-size: 13px;
+        }
+
+        .selected-city .city-coords {
+            color: var(--tg-theme-hint-color);
+            font-size: 11px;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border-radius: 12px;
+            border: none;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .btn:active {
+            opacity: 0.8;
+        }
+
+        .btn-primary {
+            background: var(--tg-theme-button-color);
+            color: var(--tg-theme-button-text-color);
+        }
+
+        .btn-secondary {
+            background: var(--tg-theme-secondary-bg-color);
+            color: var(--tg-theme-text-color);
+            margin-top: 8px;
+        }
+
+        .btn-danger {
+            background: #f44336;
+            color: white;
+            margin-top: 8px;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--tg-theme-secondary-bg-color);
+        }
+
+        .detail-label {
+            color: var(--tg-theme-hint-color);
+            font-size: 14px;
+        }
+
+        .detail-value {
+            font-size: 14px;
+            text-align: right;
+            max-width: 60%;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--tg-theme-hint-color);
+        }
+
+        .empty {
+            text-align: center;
+            padding: 40px;
+            color: var(--tg-theme-hint-color);
+        }
+
+        .fab {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: var(--tg-theme-button-color);
+            color: var(--tg-theme-button-text-color);
+            border: none;
+            font-size: 28px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+        }
+
+        .action-buttons .btn {
+            flex: 1;
+        }
+
+        /* Flatpickr кастомизация */
+        .flatpickr-calendar {
+            font-family: inherit;
+        }
+
+        /* IMask placeholder styling */
+        input::placeholder {
+            color: var(--tg-theme-hint-color);
+            opacity: 0.6;
+        }
+
+        /* Toast уведомления */
+        .toast-container {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            pointer-events: none;
+        }
+
+        .toast {
+            background: var(--tg-theme-text-color);
+            color: var(--tg-theme-bg-color);
+            padding: 12px 20px;
+            border-radius: 12px;
+            font-size: 14px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            animation: toastIn 0.3s ease, toastOut 0.3s ease 2.7s forwards;
+            pointer-events: auto;
+        }
+
+        .toast.success {
+            background: #10b981;
+            color: white;
+        }
+
+        .toast.error {
+            background: #ef4444;
+            color: white;
+        }
+
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes toastOut {
+            from { opacity: 1; transform: translateY(0); }
+            to { opacity: 0; transform: translateY(-20px); }
+        }
+
+        /* Модалка ввода дней */
+        .input-modal-content {
+            background: var(--tg-theme-bg-color);
+            border-radius: 16px;
+            padding: 24px;
+            width: 90%;
+            max-width: 320px;
+            text-align: center;
+        }
+
+        .input-modal-content h3 {
+            margin-bottom: 16px;
+            font-size: 18px;
+        }
+
+        .input-modal-content input {
+            width: 100%;
+            padding: 12px 16px;
+            font-size: 18px;
+            text-align: center;
+            border: 2px solid var(--tg-theme-secondary-bg-color);
+            border-radius: 12px;
+            margin-bottom: 16px;
+            background: var(--tg-theme-bg-color);
+            color: var(--tg-theme-text-color);
+        }
+
+        .input-modal-content input:focus {
+            border-color: var(--tg-theme-button-color);
+            outline: none;
+        }
+
+        .input-modal-buttons {
+            display: flex;
+            gap: 12px;
+        }
+
+        .input-modal-buttons .btn {
+            flex: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Астро-бот</h1>
+        <span id="admin-name"></span>
+    </div>
+
+    <!-- Статистика -->
+    <div class="stats-grid" id="stats">
+        <div class="stat-card">
+            <div class="stat-value" id="stat-total">-</div>
+            <div class="stat-label">Всего</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="stat-active">-</div>
+            <div class="stat-label">Активных</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="stat-expiring">-</div>
+            <div class="stat-label">Истекает</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="stat-nodata">-</div>
+            <div class="stat-label">Без данных</div>
+        </div>
+    </div>
+
+    <!-- Кнопка сброса всех прогнозов -->
+    <div style="margin-bottom: 16px;">
+        <button class="tab" id="recalculate-btn" style="width: 100%; padding: 14px; background: #e74c3c; color: white; font-weight: 600; border-radius: 12px;">
+            🔄 Сбросить все прогнозы
+        </button>
+    </div>
+
+    <!-- Фильтры -->
+    <div class="tabs" id="filters">
+        <button class="tab active" data-filter="all">Все</button>
+        <button class="tab" data-filter="active">Активные</button>
+        <button class="tab" data-filter="expiring">Истекают</button>
+        <button class="tab" data-filter="expired">Истёкшие</button>
+        <button class="tab" data-filter="nodata">Без данных</button>
+    </div>
+
+    <!-- Поиск -->
+    <input type="text" class="search-box" id="search" placeholder="Поиск по имени или ID...">
+
+    <!-- Список пользователей -->
+    <div class="user-list" id="user-list">
+        <div class="loading">Загрузка...</div>
+    </div>
+
+    <!-- Кнопка добавления -->
+    <button class="fab" id="add-btn">+</button>
+
+    <!-- Модальное окно: детали пользователя -->
+    <div class="modal" id="user-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-title">Пользователь</h2>
+                <button class="close-btn" onclick="closeModal('user-modal')">&times;</button>
+            </div>
+            <div id="user-details"></div>
+        </div>
+    </div>
+
+    <!-- Модальное окно: добавление/редактирование -->
+    <div class="modal" id="edit-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="edit-title">Добавить клиента</h2>
+                <button class="close-btn" onclick="closeModal('edit-modal')">&times;</button>
+            </div>
+            <form id="user-form">
+                <input type="hidden" id="edit-id">
+
+                <div class="form-group">
+                    <label>Telegram ID</label>
+                    <input type="number" id="edit-telegram-id" required placeholder="Введите Telegram ID">
+                </div>
+
+                <div class="form-group">
+                    <label>Имя</label>
+                    <input type="text" id="edit-name" required placeholder="Имя клиента">
+                </div>
+
+                <div class="form-group">
+                    <label>Дата рождения</label>
+                    <input type="text" id="edit-birth-date" required placeholder="Выберите дату">
+                    <div class="hint">Нажмите для выбора из календаря</div>
+                </div>
+
+                <div class="form-group">
+                    <label>Время рождения</label>
+                    <input type="text" id="edit-birth-time" required placeholder="ЧЧММСС (например: 143025)">
+                    <div class="hint">Введите 6 цифр без разделителей</div>
+                </div>
+
+                <div class="form-group city-autocomplete">
+                    <label>Место рождения</label>
+                    <input type="text" id="edit-birth-place" autocomplete="off" required placeholder="Начните вводить город...">
+                    <div class="city-suggestions" id="birth-suggestions"></div>
+                    <div class="selected-city" id="birth-selected" style="display:none"></div>
+                    <input type="hidden" id="birth-geo-data">
+                </div>
+
+                <div class="form-group city-autocomplete">
+                    <label>Место проживания</label>
+                    <input type="text" id="edit-residence" autocomplete="off" required placeholder="Начните вводить город...">
+                    <div class="city-suggestions" id="residence-suggestions"></div>
+                    <div class="selected-city" id="residence-selected" style="display:none"></div>
+                    <input type="hidden" id="residence-geo-data">
+                </div>
+
+                <button type="submit" class="btn btn-primary">Сохранить</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно: ввод количества дней -->
+    <div class="modal" id="days-modal">
+        <div class="input-modal-content">
+            <h3>Продление подписки</h3>
+            <input type="number" id="days-input" min="1" max="365" value="30" placeholder="Дни">
+            <div class="hint" style="margin-bottom: 16px; color: var(--tg-theme-hint-color);">Введите от 1 до 365 дней</div>
+            <div class="input-modal-buttons">
+                <button class="btn" onclick="closeModal('days-modal')">Отмена</button>
+                <button class="btn btn-primary" id="days-confirm-btn">Продлить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast контейнер -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <script>
+        // Telegram WebApp с fallback для браузера
+        const tg = window.Telegram?.WebApp || {
+            ready: () => {},
+            expand: () => {},
+            initData: '',
+            themeParams: {},
+            HapticFeedback: null,
+            showAlert: null,
+            showConfirm: null
+        };
+
+        // Безопасный вызов методов Telegram
+        if (tg.ready) tg.ready();
+        if (tg.expand) tg.expand();
+
+        // Haptic feedback с поддержкой notification types
+        const haptic = (style) => {
+            if (tg?.HapticFeedback) {
+                // Notification types: error, success, warning
+                if (['error', 'success', 'warning'].includes(style)) {
+                    tg.HapticFeedback.notificationOccurred(style);
+                } else {
+                    // Impact types: light, medium, heavy, rigid, soft
+                    tg.HapticFeedback.impactOccurred(style);
+                }
+            }
+        };
+
+        // Toast уведомления
+        const showToast = (message, type = 'default') => {
+            // Haptic feedback при показе toast
+            if (type === 'success') haptic('success');
+            else if (type === 'error') haptic('error');
+            else haptic('light');
+
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            container.appendChild(toast);
+
+            // Удаляем через 3 секунды
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.parentNode.removeChild(toast);
+                }
+            }, 3000);
+        };
+
+        // Fallback функции для работы вне Telegram
+        const showAlert = (message, type = 'default') => {
+            console.log('showAlert called:', message);
+            // Определяем тип по содержимому
+            let toastType = type;
+            if (type === 'default') {
+                if (message.includes('Ошибка') || message.includes('ошибка')) {
+                    toastType = 'error';
+                } else if (message.includes('успешно') || message.includes('Успешно') ||
+                           message.includes('продлена') || message.includes('удалён') ||
+                           message.includes('Сохранено') || message.includes('активирована')) {
+                    toastType = 'success';
+                }
+            }
+
+            // Используем toast вместо alert
+            showToast(message, toastType);
+        };
+
+        const showConfirm = (message, callback) => {
+            console.log('showConfirm called:', message);
+            try {
+                if (tg && tg.showConfirm && typeof tg.showConfirm === 'function') {
+                    console.log('Using tg.showConfirm');
+                    tg.showConfirm(message, (confirmed) => {
+                        console.log('tg.showConfirm result:', confirmed);
+                        callback(confirmed);
+                    });
+                } else {
+                    console.log('Using native confirm');
+                    const result = confirm(message);
+                    console.log('Native confirm result:', result);
+                    callback(result);
+                }
+            } catch (e) {
+                console.error('showConfirm error:', e);
+                const result = confirm(message);
+                callback(result);
+            }
+        };
+
+        // Применяем тему Telegram (с fallback значениями)
+        const themeParams = tg.themeParams || {};
+        document.documentElement.style.setProperty('--tg-theme-bg-color', themeParams.bg_color || '#ffffff');
+        document.documentElement.style.setProperty('--tg-theme-text-color', themeParams.text_color || '#000000');
+        document.documentElement.style.setProperty('--tg-theme-hint-color', themeParams.hint_color || '#999999');
+        document.documentElement.style.setProperty('--tg-theme-button-color', themeParams.button_color || '#2481cc');
+        document.documentElement.style.setProperty('--tg-theme-secondary-bg-color', themeParams.secondary_bg_color || '#f0f0f0');
+
+        // Показываем имя админа
+        if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+            document.getElementById('admin-name').textContent = tg.initDataUnsafe.user.first_name;
+        } else {
+            document.getElementById('admin-name').textContent = 'Dev Admin';
+        }
+
+        // Состояние
+        let currentFilter = 'all';
+        let searchTimeout = null;
+        let birthDatePicker = null;
+        let birthTimeMask = null;
+        let geoSearchTimeout = null;
+
+        // API
+        async function api(endpoint, options = {}) {
+            const headers = {
+                'Content-Type': 'application/json',
+                'X-Telegram-Init-Data': tg.initData || ''
+            };
+
+            console.log(`API call: ${options.method || 'GET'} /api${endpoint}`);
+
+            const response = await fetch(`/api${endpoint}`, {
+                ...options,
+                headers: { ...headers, ...options.headers }
+            });
+
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({ detail: `HTTP ${response.status}` }));
+                console.error(`API error ${response.status}:`, error);
+                throw new Error(error.detail || 'API Error');
+            }
+
+            return response.json();
+        }
+
+        // ========== ИНИЦИАЛИЗАЦИЯ FLATPICKR (КАЛЕНДАРЬ) ==========
+        function initDatePicker() {
+            birthDatePicker = flatpickr("#edit-birth-date", {
+                locale: "ru",
+                dateFormat: "d.m.Y",
+                maxDate: new Date(),
+                minDate: "01.01.1900",
+                defaultDate: null,
+                disableMobile: false,
+                allowInput: true,
+                clickOpens: true,
+                onChange: function(selectedDates, dateStr) {
+                    console.log('Date selected:', dateStr);
+                }
+            });
+        }
+
+        // ========== ИНИЦИАЛИЗАЦИЯ IMASK (МАСКА ВРЕМЕНИ) ==========
+        function initTimeMask() {
+            const timeInput = document.getElementById('edit-birth-time');
+
+            birthTimeMask = IMask(timeInput, {
+                mask: 'HH:MM:SS',
+                blocks: {
+                    HH: {
+                        mask: IMask.MaskedRange,
+                        from: 0,
+                        to: 23,
+                        maxLength: 2
+                    },
+                    MM: {
+                        mask: IMask.MaskedRange,
+                        from: 0,
+                        to: 59,
+                        maxLength: 2
+                    },
+                    SS: {
+                        mask: IMask.MaskedRange,
+                        from: 0,
+                        to: 59,
+                        maxLength: 2
+                    }
+                },
+                lazy: true,
+                autofix: true,
+                overwrite: true,
+                // Преобразование ввода: 052601 -> 05:26:01
+                prepare: function(str, masked) {
+                    // Убираем всё кроме цифр
+                    return str.replace(/\D/g, '');
+                }
+            });
+
+            // Обработчик для автоформатирования при вставке
+            timeInput.addEventListener('paste', function(e) {
+                e.preventDefault();
+                const pastedText = (e.clipboardData || window.clipboardData).getData('text');
+                const digits = pastedText.replace(/\D/g, '').slice(0, 6);
+                if (digits.length === 6) {
+                    birthTimeMask.value = digits.slice(0,2) + ':' + digits.slice(2,4) + ':' + digits.slice(4,6);
+                }
+            });
+
+            // Автоформат при потере фокуса
+            timeInput.addEventListener('blur', function() {
+                const digits = this.value.replace(/\D/g, '');
+                if (digits.length === 6) {
+                    birthTimeMask.value = digits.slice(0,2) + ':' + digits.slice(2,4) + ':' + digits.slice(4,6);
+                }
+            });
+        }
+
+        // ========== АВТОКОМПЛИТ ГОРОДОВ ==========
+        function initCityAutocomplete() {
+            setupCityField('edit-birth-place', 'birth-suggestions', 'birth-selected', 'birth-geo-data');
+            setupCityField('edit-residence', 'residence-suggestions', 'residence-selected', 'residence-geo-data');
+        }
+
+        function setupCityField(inputId, suggestionsId, selectedId, geoDataId) {
+            const input = document.getElementById(inputId);
+            const suggestions = document.getElementById(suggestionsId);
+            const selected = document.getElementById(selectedId);
+            const geoData = document.getElementById(geoDataId);
+
+            let currentIndex = -1;
+            let currentResults = [];
+
+            input.addEventListener('input', function() {
+                const query = this.value.trim();
+
+                clearTimeout(geoSearchTimeout);
+
+                if (query.length < 2) {
+                    suggestions.classList.remove('active');
+                    return;
+                }
+
+                // Показываем загрузку
+                suggestions.innerHTML = '<div class="city-loading">Поиск...</div>';
+                suggestions.classList.add('active');
+
+                // Debounce поиска
+                geoSearchTimeout = setTimeout(async () => {
+                    try {
+                        const results = await searchCities(query);
+                        currentResults = results;
+                        currentIndex = -1;
+
+                        if (results.length === 0) {
+                            suggestions.innerHTML = '<div class="city-loading">Ничего не найдено</div>';
+                        } else {
+                            suggestions.innerHTML = results.map((city, i) => `
+                                <div class="city-suggestion" data-index="${i}">
+                                    <div class="city-name">${city.city}, ${city.country}</div>
+                                    <div class="city-details">${city.coords_formatted} | ${city.timezone}</div>
+                                </div>
+                            `).join('');
+
+                            // Клик по варианту
+                            suggestions.querySelectorAll('.city-suggestion').forEach(el => {
+                                el.addEventListener('click', function() {
+                                    selectCity(parseInt(this.dataset.index));
+                                });
+                            });
+                        }
+                    } catch (e) {
+                        suggestions.innerHTML = '<div class="city-loading">Ошибка поиска</div>';
+                    }
+                }, 300);
+            });
+
+            // Навигация клавишами
+            input.addEventListener('keydown', function(e) {
+                if (!suggestions.classList.contains('active')) return;
+
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    currentIndex = Math.min(currentIndex + 1, currentResults.length - 1);
+                    updateSelection();
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    currentIndex = Math.max(currentIndex - 1, 0);
+                    updateSelection();
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (currentIndex >= 0) {
+                        selectCity(currentIndex);
+                    }
+                } else if (e.key === 'Escape') {
+                    suggestions.classList.remove('active');
+                }
+            });
+
+            function updateSelection() {
+                suggestions.querySelectorAll('.city-suggestion').forEach((el, i) => {
+                    el.classList.toggle('selected', i === currentIndex);
+                });
+            }
+
+            function selectCity(index) {
+                const city = currentResults[index];
+                if (!city) return;
+
+                input.value = city.city;
+                geoData.value = JSON.stringify(city);
+
+                selected.innerHTML = `
+                    <strong>${city.city}, ${city.country}</strong><br>
+                    <span class="city-coords">${city.coords_formatted} | TZ: ${city.timezone}</span>
+                `;
+                selected.style.display = 'block';
+
+                suggestions.classList.remove('active');
+
+                // Haptic feedback
+                if (tg.HapticFeedback) {
+                    tg.HapticFeedback.impactOccurred('light');
+                }
+            }
+
+            // Закрытие при клике вне
+            document.addEventListener('click', function(e) {
+                if (!input.contains(e.target) && !suggestions.contains(e.target)) {
+                    suggestions.classList.remove('active');
+                }
+            });
+        }
+
+        async function searchCities(query) {
+            // Используем наш API вместо прямых запросов к Nominatim
+            console.log('searchCities called with:', query);
+            try {
+                const response = await api('/geocode/search', {
+                    method: 'POST',
+                    body: JSON.stringify({ city: query })
+                });
+                console.log('searchCities response:', response);
+                return response.results || [];
+            } catch (e) {
+                console.error('searchCities error:', e);
+                return [];
+            }
+        }
+
+        // ========== ЗАГРУЗКА ДАННЫХ ==========
+        async function loadStats() {
+            try {
+                const stats = await api('/stats');
+                document.getElementById('stat-total').textContent = stats.total_users;
+                document.getElementById('stat-active').textContent = stats.active_subs;
+                document.getElementById('stat-expiring').textContent = stats.expiring_soon;
+                document.getElementById('stat-nodata').textContent = stats.without_data;
+            } catch (e) {
+                console.error('Error loading stats:', e);
+            }
+        }
+
+        async function loadUsers(filter = 'all', search = '') {
+            const listEl = document.getElementById('user-list');
+            listEl.innerHTML = '<div class="loading">Загрузка...</div>';
+
+            try {
+                const params = new URLSearchParams({ filter });
+                if (search) params.set('search', search);
+
+                const data = await api(`/users?${params}`);
+
+                if (data.users.length === 0) {
+                    listEl.innerHTML = '<div class="empty">Нет пользователей</div>';
+                    return;
+                }
+
+                listEl.innerHTML = data.users.map(user => {
+                    let statusClass = '';
+                    let statusText = '';
+
+                    if (!user.natal_data_complete) {
+                        statusClass = 'nodata';
+                        statusText = 'Нет данных';
+                    } else if (user.subscription && user.subscription.status === 'active') {
+                        statusText = `до ${user.subscription.expires_at}`;
+                    } else if (user.subscription && user.subscription.status === 'expiring_soon') {
+                        statusClass = 'nodata';
+                        statusText = `${user.subscription.days_left} дн.`;
+                    } else {
+                        statusClass = 'expired';
+                        statusText = 'Истекла';
+                    }
+
+                    return `
+                        <div class="user-card" onclick="openUserDetail(${user.telegram_id})">
+                            <div class="user-header">
+                                <div class="user-name">${user.first_name || 'Без имени'}</div>
+                                <span class="user-status ${statusClass}">${statusText}</span>
+                            </div>
+                            <div class="user-info">
+                                ${user.username ? '@' + user.username : ''}
+                                ${user.birth_place ? '• ' + user.birth_place : ''}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+            } catch (e) {
+                listEl.innerHTML = `<div class="empty">Ошибка: ${e.message}</div>`;
+            }
+        }
+
+        // ========== ДЕТАЛИ ПОЛЬЗОВАТЕЛЯ ==========
+        async function openUserDetail(telegramId) {
+            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+
+            try {
+                const user = await api(`/users/${telegramId}`);
+
+                document.getElementById('modal-title').textContent = user.first_name || 'Пользователь';
+
+                let subStatus = 'Нет подписки';
+                if (user.subscription) {
+                    if (user.subscription.status === 'active' || user.subscription.status === 'expiring_soon') {
+                        subStatus = `Активна до ${user.subscription.expires_at}`;
+                    } else {
+                        subStatus = 'Истекла';
+                    }
+                }
+
+                document.getElementById('user-details').innerHTML = `
+                    <div class="detail-row">
+                        <span class="detail-label">Telegram ID</span>
+                        <span class="detail-value">${user.telegram_id}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Username</span>
+                        <span class="detail-value">${user.username ? '@' + user.username : '—'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Дата рождения</span>
+                        <span class="detail-value">${user.birth_date || '—'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Время рождения</span>
+                        <span class="detail-value">${user.birth_time || '—'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Место рождения</span>
+                        <span class="detail-value">${user.birth_place || '—'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Часовой пояс</span>
+                        <span class="detail-value">${user.birth_tz ? `${user.birth_tz} (UTC${user.birth_tz_offset >= 0 ? '+' : ''}${user.birth_tz_offset != null ? user.birth_tz_offset : '?'})` : '—'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Проживание</span>
+                        <span class="detail-value">${user.residence_place || '—'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Подписка</span>
+                        <span class="detail-value">${subStatus}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Вопросов сегодня</span>
+                        <span class="detail-value">${user.questions_today}/10</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Прогнозов</span>
+                        <span class="detail-value">${user.forecasts_count}</span>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button class="btn btn-primary" onclick="editUser(${user.telegram_id})">Редактировать</button>
+                    </div>
+                    <button class="btn btn-secondary" onclick="extendSubscription(${user.telegram_id})">Продлить подписку</button>
+                    <button class="btn btn-danger" onclick="deleteUser(${user.telegram_id})">Удалить</button>
+                `;
+
+                openModal('user-modal');
+
+            } catch (e) {
+                showAlert('Ошибка: ' + e.message);
+            }
+        }
+
+        // ========== РЕДАКТИРОВАНИЕ ==========
+        function editUser(telegramId) {
+            closeModal('user-modal');
+
+            api(`/users/${telegramId}`).then(user => {
+                document.getElementById('edit-title').textContent = 'Редактировать';
+                document.getElementById('edit-id').value = telegramId;
+                document.getElementById('edit-telegram-id').value = telegramId;
+                document.getElementById('edit-telegram-id').disabled = true;
+                document.getElementById('edit-name').value = user.first_name || '';
+
+                // Дата
+                if (user.birth_date) {
+                    birthDatePicker.setDate(user.birth_date, true, "d.m.Y");
+                }
+
+                // Время
+                if (user.birth_time) {
+                    birthTimeMask.value = user.birth_time;
+                }
+
+                // Место рождения
+                document.getElementById('edit-birth-place').value = user.birth_place || '';
+                if (user.birth_place) {
+                    document.getElementById('birth-selected').innerHTML = `
+                        <strong>${user.birth_place}</strong><br>
+                        <span class="city-coords">${user.birth_lat?.toFixed(4) || ''}°, ${user.birth_lon?.toFixed(4) || ''}° | TZ: ${user.birth_tz || ''}</span>
+                    `;
+                    document.getElementById('birth-selected').style.display = 'block';
+                    document.getElementById('birth-geo-data').value = JSON.stringify({
+                        city: user.birth_place,
+                        lat: user.birth_lat,
+                        lon: user.birth_lon,
+                        timezone: user.birth_tz
+                    });
+                }
+
+                // Место проживания
+                document.getElementById('edit-residence').value = user.residence_place || '';
+                if (user.residence_place) {
+                    document.getElementById('residence-selected').innerHTML = `
+                        <strong>${user.residence_place}</strong><br>
+                        <span class="city-coords">${user.residence_lat?.toFixed(4) || ''}°, ${user.residence_lon?.toFixed(4) || ''}° | TZ: ${user.residence_tz || ''}</span>
+                    `;
+                    document.getElementById('residence-selected').style.display = 'block';
+                    document.getElementById('residence-geo-data').value = JSON.stringify({
+                        city: user.residence_place,
+                        lat: user.residence_lat,
+                        lon: user.residence_lon,
+                        timezone: user.residence_tz
+                    });
+                }
+
+                openModal('edit-modal');
+            });
+        }
+
+        // Продление подписки (с модальным окном)
+        let pendingExtendUserId = null;
+
+        function extendSubscription(telegramId) {
+            console.log('extendSubscription called with:', telegramId);
+            pendingExtendUserId = telegramId;
+
+            // Открываем модальное окно
+            document.getElementById('days-input').value = '30';
+            openModal('days-modal');
+
+            // Фокус на поле ввода
+            setTimeout(() => {
+                document.getElementById('days-input').focus();
+                document.getElementById('days-input').select();
+            }, 100);
+        }
+
+        // Обработчик подтверждения продления
+        document.getElementById('days-confirm-btn').onclick = async function() {
+            const daysStr = document.getElementById('days-input').value;
+            const days = parseInt(daysStr);
+
+            if (isNaN(days) || days < 1 || days > 365) {
+                showAlert('Введите число от 1 до 365');
+                return;
+            }
+
+            closeModal('days-modal');
+
+            try {
+                console.log('Sending API request for', days, 'days...');
+                const result = await api(`/users/${pendingExtendUserId}/subscription`, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'extend', days: days })
+                });
+                console.log('API result:', result);
+                showAlert(`Подписка продлена на ${days} дн. до ${result.expires_at}`);
+                closeModal('user-modal');
+                loadUsers(currentFilter);
+                loadStats();
+            } catch (e) {
+                console.error('extendSubscription error:', e);
+                showAlert('Ошибка: ' + e.message);
+            }
+        };
+
+        // Enter для подтверждения
+        document.getElementById('days-input').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                document.getElementById('days-confirm-btn').click();
+            }
+        });
+
+        // Удаление
+        function deleteUser(telegramId) {
+            showConfirm('Удалить пользователя?', async (confirmed) => {
+                if (!confirmed) return;
+
+                try {
+                    await api(`/users/${telegramId}`, { method: 'DELETE' });
+                    showAlert('Пользователь удалён');
+                    closeModal('user-modal');
+                    loadUsers(currentFilter);
+                    loadStats();
+                } catch (e) {
+                    showAlert('Ошибка: ' + e.message);
+                }
+            });
+        }
+
+        // Модальные окна
+        function openModal(id) {
+            document.getElementById(id).classList.add('active');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('active');
+        }
+
+        // ========== ОБРАБОТЧИКИ ==========
+        document.getElementById('filters').addEventListener('click', (e) => {
+            if (e.target.classList.contains('tab')) {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                e.target.classList.add('active');
+                currentFilter = e.target.dataset.filter;
+                loadUsers(currentFilter, document.getElementById('search').value);
+            }
+        });
+
+        document.getElementById('search').addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                loadUsers(currentFilter, e.target.value);
+            }, 300);
+        });
+
+        document.getElementById('add-btn').addEventListener('click', () => {
+            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+            document.getElementById('edit-title').textContent = 'Добавить клиента';
+            document.getElementById('edit-id').value = '';
+            document.getElementById('edit-telegram-id').value = '';
+            document.getElementById('edit-telegram-id').disabled = false;
+            document.getElementById('edit-name').value = '';
+
+            // Очищаем датапикер и маску
+            birthDatePicker.clear();
+            birthTimeMask.value = '';
+
+            document.getElementById('edit-birth-place').value = '';
+            document.getElementById('birth-selected').style.display = 'none';
+            document.getElementById('birth-geo-data').value = '';
+
+            document.getElementById('edit-residence').value = '';
+            document.getElementById('residence-selected').style.display = 'none';
+            document.getElementById('residence-geo-data').value = '';
+
+            openModal('edit-modal');
+        });
+
+        // Кнопка сброса всех прогнозов
+        document.getElementById('recalculate-btn').addEventListener('click', async () => {
+            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('heavy');
+
+            if (!confirm('⚠️ СБРОСИТЬ ВСЕ ПРОГНОЗЫ?\n\nБудут удалены:\n• Кэш календаря\n• Все AI-прогнозы\n\nНовые прогнозы загрузятся при входе пользователей.')) {
+                return;
+            }
+
+            const btn = document.getElementById('recalculate-btn');
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = '⏳ Сбрасываю...';
+
+            // Получаем ID админа из Telegram
+            const currentAdminId = tg.initDataUnsafe?.user?.id;
+            if (!currentAdminId) {
+                showAlert('❌ Не удалось получить ID админа');
+                btn.disabled = false;
+                btn.textContent = originalText;
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/admin/recalculate?admin_id=${currentAdminId}`, {
+                    method: 'POST',
+                    headers: {
+                        'X-Telegram-Init-Data': tg.initData
+                    }
+                });
+
+                if (!response.ok) throw new Error('Ошибка при сбросе');
+
+                const data = await response.json();
+                if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+                showAlert(`✅ Все прогнозы сброшены!\n\nКалендарь: ${data.deleted_cache || 0}\nПрогнозы ИИ: ${data.deleted_forecasts || 0}`);
+            } catch (error) {
+                if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+                showAlert('❌ Ошибка: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }
+        });
+
+        document.getElementById('user-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const editId = document.getElementById('edit-id').value;
+
+            // Валидация telegram_id
+            const telegramIdStr = document.getElementById('edit-telegram-id').value.trim();
+            if (!telegramIdStr) {
+                showAlert('Введите Telegram ID');
+                return;
+            }
+            const telegramId = parseInt(telegramIdStr);
+            if (isNaN(telegramId) || telegramId <= 0) {
+                showAlert('Telegram ID должен быть положительным числом');
+                return;
+            }
+
+            // Валидация имени
+            const firstName = document.getElementById('edit-name').value.trim();
+            if (!firstName) {
+                showAlert('Введите имя пользователя');
+                return;
+            }
+
+            // Валидация даты рождения
+            const birthDate = document.getElementById('edit-birth-date').value;
+            if (!birthDate) {
+                showAlert('Введите дату рождения');
+                return;
+            }
+            // Проверка формата DD.MM.YYYY
+            const dateRegex = /^(\d{2})\.(\d{2})\.(\d{4})$/;
+            const dateMatch = birthDate.match(dateRegex);
+            if (!dateMatch) {
+                showAlert('Дата должна быть в формате ДД.ММ.ГГГГ');
+                return;
+            }
+            const day = parseInt(dateMatch[1]);
+            const month = parseInt(dateMatch[2]);
+            const year = parseInt(dateMatch[3]);
+            if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1900 || year > 2025) {
+                showAlert('Введите корректную дату рождения');
+                return;
+            }
+
+            // Валидация времени рождения
+            const birthTime = birthTimeMask.value;
+            if (!birthTime || birthTime.includes('_')) {
+                showAlert('Введите полное время рождения (ЧЧ:ММ:СС)');
+                return;
+            }
+            // Проверка формата HH:MM:SS
+            const timeRegex = /^([01]\d|2[0-3]):([0-5]\d):([0-5]\d)$/;
+            if (!timeRegex.test(birthTime)) {
+                showAlert('Время должно быть в формате ЧЧ:ММ:СС (например, 14:30:00)');
+                return;
+            }
+
+            // Получаем гео-данные
+            const birthGeo = document.getElementById('birth-geo-data').value;
+            const residenceGeo = document.getElementById('residence-geo-data').value;
+
+            if (!birthGeo) {
+                showAlert('Выберите место рождения из списка');
+                return;
+            }
+
+            if (!residenceGeo) {
+                showAlert('Выберите место проживания из списка');
+                return;
+            }
+
+            const birthData = JSON.parse(birthGeo);
+            const residenceData = JSON.parse(residenceGeo);
+
+            const data = {
+                telegram_id: parseInt(document.getElementById('edit-telegram-id').value),
+                first_name: document.getElementById('edit-name').value,
+                birth_date: document.getElementById('edit-birth-date').value,
+                birth_time: birthTimeMask.value,
+                birth_place: birthData.city,
+                birth_lat: birthData.lat,
+                birth_lon: birthData.lon,
+                birth_tz: birthData.timezone,
+                residence_place: residenceData.city,
+                residence_lat: residenceData.lat,
+                residence_lon: residenceData.lon,
+                residence_tz: residenceData.timezone
+            };
+
+            try {
+                if (editId) {
+                    await api(`/users/${editId}`, {
+                        method: 'PATCH',
+                        body: JSON.stringify(data)
+                    });
+                } else {
+                    await api('/users', {
+                        method: 'POST',
+                        body: JSON.stringify(data)
+                    });
+                }
+
+                showAlert('Сохранено!');
+                closeModal('edit-modal');
+                loadUsers(currentFilter);
+                loadStats();
+
+            } catch (e) {
+                showAlert('Ошибка: ' + e.message);
+            }
+        });
+
+        // ========== ИНИЦИАЛИЗАЦИЯ ==========
+        document.addEventListener('DOMContentLoaded', () => {
+            initDatePicker();
+            initTimeMask();
+            initCityAutocomplete();
+            loadStats();
+            loadUsers();
+        });
+    </script>
+</body>
+</html>
