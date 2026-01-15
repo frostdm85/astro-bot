@@ -94,7 +94,6 @@
             </div>
             <div class="natal-widget-content">
                 <div id="menuChartPaper" class="menu-chart-paper"></div>
-                <div id="menuChartLegend" class="menu-chart-legend"></div>
             </div>
         </div>
 
@@ -976,12 +975,9 @@
 
     async function loadMenuNatalChart() {
         const chartPaper = document.getElementById('menuChartPaper');
-        const chartLegend = document.getElementById('menuChartLegend');
-
         if (!chartPaper) return;
 
         chartPaper.innerHTML = '<div class="chart-loading"><div class="loader-small"></div><span>Строю карту...</span></div>';
-        chartLegend.innerHTML = '';
 
         try {
             const response = await fetch(`/api/natal-chart/${userId}`);
@@ -993,7 +989,7 @@
             const data = await response.json();
             chartPaper.innerHTML = '';
 
-            // Настройки карты для виджета (компактнее)
+            // Настройки карты для виджета
             const settings = {
                 CHART_PADDING: 5,
                 CHART_VIEWBOX_WIDTH: 320,
@@ -1031,31 +1027,6 @@
                 {name: "Opposition", angle: 180, orb: 8.5},
             ];
             menuChartInstance.drawAspects(data.points, data.points, aspectsConfig);
-
-            // Краткая легенда с позициями планет
-            const signSymbols = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l'];
-            const planetSymbols = {
-                'Sun': 'A', 'Moon': 'B', 'Mercury': 'C', 'Venus': 'D', 'Mars': 'E',
-                'Jupiter': 'F', 'Saturn': 'G', 'Uranus': 'H', 'Neptune': 'I', 'Pluto': 'J',
-                'NNode': 'K', 'Lilith': 'L'
-            };
-
-            let legendHtml = '';
-            for (const point of data.points) {
-                const signIndex = Math.floor(point.angle / 30);
-                const degreeInSign = Math.floor(point.angle % 30);
-                const symbol = planetSymbols[point.name] || '?';
-                const signSym = signSymbols[signIndex];
-                const retro = point.isRetrograde ? '℞' : '';
-
-                legendHtml += `
-                    <div class="menu-legend-item">
-                        <span class="menu-legend-symbol">${symbol}</span>
-                        <span class="menu-legend-deg">${degreeInSign}°${signSym}${retro}</span>
-                    </div>
-                `;
-            }
-            chartLegend.innerHTML = legendHtml;
 
         } catch (e) {
             console.error('Ошибка загрузки натальной карты:', e);

@@ -1502,21 +1502,19 @@ body {
 /* ============== БЛОК НАТАЛЬНОЙ КАРТЫ (МЕНЮ) ============== */
 
 .natal-widget {
-    background: linear-gradient(135deg, rgba(30, 30, 60, 0.9) 0%, rgba(20, 20, 45, 0.95) 100%);
-    border: 1px solid rgba(139, 92, 246, 0.3);
+    background: #f8f9fa;
+    border: 1px solid rgba(0, 0, 0, 0.08);
     border-radius: 16px;
     padding: 16px;
-    margin-bottom: 16px;
-    box-shadow:
-        0 4px 20px rgba(0, 0, 0, 0.3),
-        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    margin-bottom: 24px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
     cursor: pointer;
-    transition: transform 0.2s, border-color 0.2s;
+    transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .natal-widget:hover {
     transform: scale(1.01);
-    border-color: rgba(139, 92, 246, 0.5);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .natal-widget:active {
@@ -1526,6 +1524,7 @@ body {
 .natal-widget-header {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 8px;
     margin-bottom: 12px;
 }
@@ -1535,21 +1534,19 @@ body {
 }
 
 .natal-widget-title {
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 600;
-    color: var(--text);
+    color: #1a1a2e;
 }
 
 .natal-widget-content {
     display: flex;
     flex-direction: column;
-    gap: 12px;
 }
 
 .menu-chart-paper {
     background: #ffffff;
     border-radius: 12px;
-    padding: 8px;
     min-height: 280px;
     display: flex;
     align-items: center;
@@ -1559,34 +1556,6 @@ body {
 .menu-chart-paper svg {
     max-width: 100%;
     height: auto;
-}
-
-.menu-chart-legend {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 4px;
-    font-size: 11px;
-    color: var(--text-secondary);
-}
-
-.menu-legend-item {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 4px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 6px;
-}
-
-.menu-legend-symbol {
-    font-family: 'Astronomicon', serif;
-    font-size: 14px;
-    color: var(--accent);
-}
-
-.menu-legend-deg {
-    font-size: 10px;
-    color: var(--text-secondary);
 }
 
 /* ============== БЛОК ЛУНЫ ============== */
