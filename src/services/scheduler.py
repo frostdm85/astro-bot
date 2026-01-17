@@ -103,7 +103,7 @@ async def check_forecast_time(app, send_forecast_func: Callable):
 
             # Сравниваем с настройкой пользователя
             if user.forecast_time == user_time:
-                await send_forecast_func(app, user, "daily")
+                await send_forecast_func(app, user)
                 logger.info(f"Отправлен прогноз пользователю {user.telegram_id} (TZ: {tz_name}, время: {user_time})")
                 await asyncio.sleep(0.1)  # Небольшая пауза между отправками
 
