@@ -243,8 +243,8 @@ async def check_important_transits(app):
     - Предупреждает заранее
     """
     from database.models import User
-    from services.astro_engine import calculate_transits, calculate_natal_chart
-    import pytz
+    from services.astro_engine import calculate_transits, calculate_local_natal
+    from services.geocoder import get_timezone_offset
 
     logger.info("Проверка важных транзитов (тяжёлые планеты)...")
 
@@ -263,29 +263,22 @@ async def check_important_transits(app):
             continue
 
         try:
-            # TZ для натальной карты (место рождения)
-            birth_tz_name = user.birth_tz or "Europe/Moscow"
-            try:
-                birth_tz = pytz.timezone(birth_tz_name)
-                birth_tz_hours = datetime.now(birth_tz).utcoffset().total_seconds() / 3600
-            except:
-                birth_tz_hours = 3.0  # MSK по умолчанию
+            # Часовые пояса (как в Mini App и forecast.py)
+            birth_tz_hours = get_timezone_offset(user.birth_tz or "Europe/Moscow", user.birth_date)
+            display_tz_hours = get_timezone_offset(
+                user.residence_tz or user.birth_tz or "Europe/Moscow",
+                date.today()
+            )
 
-            # TZ для отображения времени транзитов (место проживания)
-            display_tz_name = user.residence_tz or user.birth_tz or "Europe/Moscow"
-            try:
-                display_tz = pytz.timezone(display_tz_name)
-                display_tz_hours = datetime.now(display_tz).utcoffset().total_seconds() / 3600
-            except:
-                display_tz_hours = 3.0  # MSK по умолчанию
-
-            # Рассчитываем натальную карту
-            natal = calculate_natal_chart(
+            # Рассчитываем натальную карту (как в Mini App)
+            natal = calculate_local_natal(
                 birth_date=user.birth_date,
-                birth_time=str(user.birth_time)[:8] if user.birth_time else "12:00:00",
+                birth_time=user.birth_time,
                 birth_lat=user.birth_lat,
                 birth_lon=user.birth_lon,
-                timezone_hours=birth_tz_hours  # TZ рождения
+                residence_lat=user.residence_lat or user.birth_lat,
+                residence_lon=user.residence_lon or user.birth_lon,
+                timezone_hours=birth_tz_hours
             )
 
             # Рассчитываем транзиты на 3 дня вперёд
@@ -296,7 +289,8 @@ async def check_important_transits(app):
                 days=3,
                 residence_lat=user.residence_lat or user.birth_lat,
                 residence_lon=user.residence_lon or user.birth_lon,
-                timezone_hours=display_tz_hours  # TZ проживания для отображения
+                timezone_hours=display_tz_hours,
+                transit_cusps_tz=display_tz_hours
             )
 
             # Фильтруем: только тяжёлые планеты (исключаем Луну и Солнце)
