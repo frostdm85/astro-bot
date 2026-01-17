@@ -54,6 +54,18 @@ ASPECTS = {
     180: ("Оппозиция", "☍", 8),
 }
 
+# Обратная маппинг таблица: имя планеты → ID (для поиска точного времени аспекта)
+PLANET_NAME_TO_ID = {name: planet_id for planet_id, (name, _) in PLANETS_ALL.items()}
+
+# Имя аспекта → угол
+ASPECT_NAME_TO_ANGLE = {
+    "Соединение": 0,
+    "Секстиль": 60,
+    "Квадратура": 90,
+    "Тригон": 120,
+    "Оппозиция": 180,
+}
+
 # Знаки зодиака
 ZODIAC_SIGNS = [
     ("Овен", "♈"), ("Телец", "♉"), ("Близнецы", "♊"),
@@ -1343,12 +1355,41 @@ def generate_full_forecast_data(
         t_name = t_parts[-1] if t_parts else ""
         n_name = n_parts[-1] if n_parts else ""
 
+        # Вычисляем точное время аспекта
+        exact_dt = None
+        try:
+            transit_id = PLANET_NAME_TO_ID.get(t_name)
+            aspect_angle = ASPECT_NAME_TO_ANGLE.get(asp["aspect"], 0)
+
+            # Находим натальную долготу
+            natal_lon = None
+            for pid, pos in natal.items():
+                if pos.name == n_name:
+                    natal_lon = pos.longitude
+                    break
+
+            if transit_id is not None and natal_lon is not None:
+                # Ищем точное время в интервале ±12 часов от target_jd
+                result = find_exact_aspect_time(
+                    natal_lon=natal_lon,
+                    transit_planet_id=transit_id,
+                    aspect_angle=aspect_angle,
+                    jd_start=target_jd - 0.5,  # -12 часов
+                    jd_end=target_jd + 0.5     # +12 часов
+                )
+                if result:
+                    exact_jd, _, _ = result
+                    exact_dt = julian_to_datetime(exact_jd, timezone_hours)
+        except Exception as e:
+            logger.debug(f"Не удалось вычислить время аспекта {t_name}-{n_name}: {e}")
+
         transits_for_formulas.append({
             "transit_planet": t_name,
             "natal_planet": n_name,
-            "aspect": asp["aspect"],
+            "aspect_name": asp["aspect"],  # Используем aspect_name для совместимости с groq_client
             "natal_house": asp["natal_house"],
-            "transit_house": asp["transit_house"]
+            "transit_house": asp["transit_house"],
+            "exact_datetime": exact_dt
         })
 
     # Создаём словарь домов натальных планет
@@ -1360,6 +1401,9 @@ def generate_full_forecast_data(
     active_formulas = check_active_formulas(transits_for_formulas, natal_houses_dict)
     data["active_formulas"] = active_formulas
     data["formulas_text"] = format_formula_for_ai(active_formulas)
+
+    # Добавляем транзиты с временем для AI
+    data["transits_for_formulas"] = transits_for_formulas
 
     # Добавляем описания домов
     data["house_meanings"] = HOUSE_MEANINGS

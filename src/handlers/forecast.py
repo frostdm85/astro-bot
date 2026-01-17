@@ -18,9 +18,13 @@ from services.astro_engine import (
     get_transits,
     calculate_houses,
     get_planet_house,
-    generate_full_forecast_data
+    generate_full_forecast_data,
+    calculate_local_natal,
+    calculate_transits,
+    format_transits_text
 )
 from services.groq_client import generate_forecast
+from datetime import time as dt_time
 from services.tts_service import text_to_speech
 from services.geocoder import get_timezone_offset
 from data.shestopalov import (
@@ -95,22 +99,13 @@ FORECAST_ERROR_TEXT = """❌ <b>Ошибка генерации прогноза
 
 FORECAST_TEXT = """🔮 <b>Прогноз на {date}</b>
 
-━━━━━━━━━━━━━━━━━━━━━━━━
-
 {content}
-
-━━━━━━━━━━━━━━━━━━━━━━━━
-
 """
 
 PERIOD_FORECAST_TEXT = """📅 <b>Прогноз на {period}</b>
 <i>{date_range}</i>
 
-━━━━━━━━━━━━━━━━━━━━━━━━
-
 {content}
-
-━━━━━━━━━━━━━━━━━━━━━━━━
 """
 
 
@@ -143,35 +138,49 @@ async def generate_daily_forecast(
         }
 
     try:
-        # Вычисляем смещение часового пояса с учётом даты рождения
-        timezone_name = user.birth_tz or "Europe/Moscow"
-        timezone_hours = get_timezone_offset(timezone_name, user.birth_date)
+        # Вычисляем смещение часового пояса (как в Mini App)
+        birth_tz_hours = get_timezone_offset(user.birth_tz or "Europe/Moscow", user.birth_date)
+        display_tz_hours = get_timezone_offset(user.residence_tz or user.birth_tz or "Europe/Moscow", target_date)
 
-        # Получаем полные данные для прогноза
-        forecast_data = generate_full_forecast_data(
+        # Рассчитываем натальную карту (как в Mini App)
+        natal = calculate_local_natal(
             birth_date=user.birth_date,
             birth_time=user.birth_time,
             birth_lat=user.birth_lat,
             birth_lon=user.birth_lon,
             residence_lat=user.residence_lat or user.birth_lat,
             residence_lon=user.residence_lon or user.birth_lon,
-            target_date=target_date,
-            timezone_hours=timezone_hours
+            timezone_hours=birth_tz_hours
         )
 
-        # Формируем список транзитов для пользователя (текстовый вывод)
-        transits_display = format_transits_list(forecast_data)
+        # Рассчитываем транзиты с exact_datetime (как в Mini App)
+        transits = calculate_transits(
+            natal_data=natal,
+            start_date=target_date,
+            days=1,
+            residence_lat=user.residence_lat or user.birth_lat,
+            residence_lon=user.residence_lon or user.birth_lon,
+            timezone_hours=display_tz_hours,
+            transit_cusps_tz=display_tz_hours
+        )
 
-        # Формируем данные для AI
-        transits_text = format_transits_for_ai(forecast_data)
+        # Фильтруем транзиты по времени: с 6:00 до 23:55 (как в Mini App)
+        transits_filtered = []
+        for tr in transits:
+            exact_dt = tr.get('exact_datetime')
+            if exact_dt:
+                t = exact_dt.time()
+                if dt_time(6, 0) <= t <= dt_time(23, 55):
+                    transits_filtered.append(tr)
+        transits = transits_filtered if transits_filtered else transits
 
-        # Подготавливаем transits_list для извлечения формул
-        transits_list = forecast_data.get("aspects_detailed", [])
+        # Форматируем текст для AI (как в Mini App)
+        transits_text = format_transits_text(transits)
 
-        # Генерируем расшифровку через AI
+        # Генерируем прогноз через AI
         ai_response = await generate_forecast(
             transits_data=transits_text,
-            transits_list=transits_list,
+            transits_list=transits,
             user_name=user.display_name,
             forecast_type="daily",
             target_date=target_date.strftime("%d.%m.%Y")
@@ -183,28 +192,32 @@ async def generate_daily_forecast(
                 "error": "Не удалось получить ответ от AI"
             }
 
-        # Собираем итоговый текст: список транзитов + расшифровка
-        full_text = f"{transits_display}\n\n<b>📖 РАСШИФРОВКА:</b>\n\n{ai_response}"
-
-        # Сохраняем в БД
+        # Сохраняем в БД (транзиты с exact_datetime)
         forecast_record = None
         if save_to_db:
             import json
+            # Конвертируем datetime в строки для JSON
+            transits_for_db = []
+            for tr in transits:
+                tr_copy = tr.copy()
+                if tr_copy.get('exact_datetime'):
+                    tr_copy['exact_datetime'] = tr_copy['exact_datetime'].isoformat()
+                transits_for_db.append(tr_copy)
+
             forecast_record = Forecast.create(
                 user=user,
                 forecast_type="daily",
                 target_date=target_date,
-                transits_data=json.dumps(forecast_data, ensure_ascii=False, default=str),
+                transits_data=json.dumps(transits_for_db, ensure_ascii=False, default=str),
                 forecast_text=ai_response
             )
 
         return {
             "success": True,
             "forecast_id": forecast_record.id if forecast_record else None,
-            "text": full_text,
+            "text": ai_response,
             "date": target_date,
-            "transits": forecast_data.get("aspects_detailed", []),
-            "active_formulas": forecast_data.get("active_formulas", [])
+            "transits": transits
         }
 
     except Exception as e:
@@ -619,6 +632,9 @@ async def send_daily_forecast(client: Client, user: User):
     """
     Отправка ежедневного прогноза пользователю
     Вызывается планировщиком
+
+    Сначала проверяет, есть ли уже прогноз на сегодня в базе.
+    Если есть — отправляет его. Если нет — генерирует новый.
     """
     if not user.has_active_subscription():
         logger.info(f"Пропуск рассылки для {user.telegram_id}: нет подписки")
@@ -629,21 +645,39 @@ async def send_daily_forecast(client: Client, user: User):
         return False
 
     try:
-        # Генерируем прогноз
-        result = await generate_daily_forecast(user, date.today())
+        today = date.today()
 
-        if not result["success"]:
-            logger.error(f"Не удалось сгенерировать прогноз для {user.telegram_id}")
-            return False
+        # Проверяем, есть ли уже прогноз на сегодня в базе
+        existing_forecast = Forecast.select().where(
+            Forecast.user == user,
+            Forecast.target_date == today,
+            Forecast.forecast_type == "daily"
+        ).first()
+
+        if existing_forecast and existing_forecast.forecast_text:
+            # Используем существующий прогноз из базы
+            forecast_text = existing_forecast.forecast_text
+            forecast_id = existing_forecast.id
+            logger.info(f"Используем существующий прогноз для {user.telegram_id}")
+        else:
+            # Генерируем новый прогноз
+            result = await generate_daily_forecast(user, today)
+
+            if not result["success"]:
+                logger.error(f"Не удалось сгенерировать прогноз для {user.telegram_id}")
+                return False
+
+            forecast_text = result["text"]
+            forecast_id = result.get("forecast_id", 0)
 
         # Отправляем сообщение
         await client.send_message(
             user.telegram_id,
             FORECAST_TEXT.format(
-                date=date.today().strftime("%d.%m.%Y"),
-                content=result["text"]
+                date=today.strftime("%d.%m.%Y"),
+                content=forecast_text
             ),
-            reply_markup=get_forecast_keyboard(result.get("forecast_id", 0))
+            reply_markup=get_forecast_keyboard(forecast_id)
         )
 
         logger.info(f"Прогноз отправлен: {user.telegram_id}")

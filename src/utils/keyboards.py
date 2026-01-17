@@ -195,7 +195,7 @@ def get_forecast_keyboard(forecast_id: int) -> InlineKeyboardMarkup:
                 callback_data=f"voice_forecast:{forecast_id}"
             )
         ],
-        [InlineKeyboardButton("🔮 Главное меню", callback_data="back_main")]
+        [InlineKeyboardButton("🔮 Главное меню", callback_data="back_main_keep")]
     ]
     return InlineKeyboardMarkup(buttons)
 

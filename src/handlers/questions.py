@@ -49,7 +49,6 @@ AI_ANSWER_TEXT = """🤖 <b>Ответ астролога:</b>
 
 {answer}
 
-━━━━━━━━━━━━━━━━━━━━━━━━
 Осталось вопросов: {remaining}/{total}"""
 
 NO_QUESTIONS_LEFT_TEXT = """❌ <b>Лимит вопросов исчерпан</b>

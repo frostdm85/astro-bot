@@ -96,7 +96,6 @@ WELCOME_NO_DATA_TEXT = """🌟 <b>Добро пожаловать в Астро-
 • 💬 Отвечаю на вопросы об астрологии
 • 🎤 Понимаю голосовые сообщения
 
-━━━━━━━━━━━━━━━━━━━━━━
 
 ⏳ <b>Ваш профиль ещё не настроен</b>
 
@@ -138,16 +137,14 @@ MAIN_MENU_TEXT = """🌟 <b>Астро-прогноз</b>
 
 HELP_TEXT = """ℹ️ <b>Справка</b>
 
-━━━━━━━━━━━━━━━━━━━━━━━━
-
+━━
 🔮 <b>Как работает бот?</b>
 
 Бот использует методологию транзитного анализа для составления персональных прогнозов.
 
 <b>Транзиты</b> — это текущие положения планет относительно вашей натальной карты. Они показывают актуальные энергии и тенденции в вашей жизни.
 
-━━━━━━━━━━━━━━━━━━━━━━━━
-
+━━
 📋 <b>Возможности бота:</b>
 
 • 🔮 Ежедневный персональный прогноз
@@ -159,8 +156,7 @@ HELP_TEXT = """ℹ️ <b>Справка</b>
 
 HELP_METHOD_TEXT = """📚 <b>Методология анализа</b>
 
-━━━━━━━━━━━━━━━━━━━━━━━━
-
+━━
 <b>Основные принципы:</b>
 
 1️⃣ <b>Формулы планет</b> — каждая планета имеет набор ключевых значений, которые проявляются в зависимости от аспектов
@@ -171,37 +167,32 @@ HELP_METHOD_TEXT = """📚 <b>Методология анализа</b>
 
 4️⃣ <b>Дома гороскопа</b> — сферы жизни, в которых проявляются планетные влияния
 
-━━━━━━━━━━━━━━━━━━━━━━━━
-
+━━
 Прогнозы бота учитывают все эти факторы для создания персонализированных рекомендаций."""
 
 SETTINGS_TEXT = """⚙️ <b>Настройки</b>
 
-━━━━━━━━━━━━━━━━━━━━━━━━
-
+━━
 ⏰ Время прогноза: <b>{forecast_time}</b>
    <i>Ежедневный прогноз приходит в это время</i>
 
 🔔 Уведомления о транзитах: <b>{push_status}</b>
    <i>Пуш при точных аспектах (орбис 0-1°)</i>
 
-━━━━━━━━━━━━━━━━━━━━━━━━
-
+━━
 📊 <b>Ваши данные:</b>
 📅 Дата рождения: {birth_date}
 📍 Место рождения: {birth_place}
 🏠 Проживание: {residence}
 
-━━━━━━━━━━━━━━━━━━━━━━━━
-
+━━
 💳 Подписка: {sub_status}"""
 
 SUPPORT_TEXT = """👨‍💻 <b>Поддержка</b>
 
 Если у вас есть вопросы или проблемы, напишите сообщение — администратор ответит в ближайшее время.
 
-━━━━━━━━━━━━━━━━━━━━━━━━
-
+━━
 Чтобы создать новое обращение, нажмите кнопку ниже."""
 
 SUPPORT_NEW_TEXT = """✏️ <b>Новое обращение</b>
@@ -225,8 +216,7 @@ SUPPORT_NO_TICKETS_TEXT = """📭 <b>У вас нет обращений</b>
 
 PAYMENT_TEXT = """💳 <b>Оформление подписки</b>
 
-━━━━━━━━━━━━━━━━━━━━━━━━
-
+━━
 📦 <b>Подписка на 1 месяц</b>
 
 ✅ Ежедневные персональные прогнозы
@@ -237,8 +227,7 @@ PAYMENT_TEXT = """💳 <b>Оформление подписки</b>
 
 💰 Стоимость: <b>{price} ₽</b>
 
-━━━━━━━━━━━━━━━━━━━━━━━━
-
+━━
 Нажмите кнопку для перехода к оплате.
 После оплаты подписка активируется автоматически."""
 
@@ -492,6 +481,10 @@ async def callback_handler(client: Client, callback: CallbackQuery):
 
     if data == "back_main":
         await show_main_menu(callback, user)
+
+    elif data == "back_main_keep":
+        # Сохраняем прогноз, отправляем меню новым сообщением
+        await show_main_menu(callback, user, preserve_message=True)
 
     elif data == "how_it_works":
         await callback.answer()
@@ -775,28 +768,39 @@ async def callback_handler(client: Client, callback: CallbackQuery):
         await show_admin_panel(client, callback)
 
 
-async def show_main_menu(callback: CallbackQuery, user: User):
-    """Показать главное меню"""
+async def show_main_menu(callback: CallbackQuery, user: User, preserve_message: bool = False):
+    """
+    Показать главное меню
+
+    Args:
+        callback: CallbackQuery
+        user: User
+        preserve_message: Если True — отправляет новое сообщение, сохраняя текущее (для прогнозов)
+    """
     await callback.answer()
 
     if not user.natal_data_complete:
-        await callback.message.edit_text(
-            WELCOME_NO_DATA_TEXT,
-            reply_markup=get_welcome_keyboard(user_id=user.telegram_id)
-        )
+        text = WELCOME_NO_DATA_TEXT
+        keyboard = get_welcome_keyboard(user_id=user.telegram_id)
     elif not user.has_active_subscription():
         info = format_user_info(user)
-        await callback.message.edit_text(
-            WELCOME_NO_SUB_TEXT.format(price=SUBSCRIPTION_PRICE, **info),
-            reply_markup=get_no_subscription_keyboard(user_id=user.telegram_id)
-        )
+        text = WELCOME_NO_SUB_TEXT.format(price=SUBSCRIPTION_PRICE, **info)
+        keyboard = get_no_subscription_keyboard(user_id=user.telegram_id)
     else:
         info = format_user_info(user)
         questions_left = user.get_questions_remaining()
-        await callback.message.edit_text(
-            MAIN_MENU_TEXT.format(**info),
-            reply_markup=get_main_menu_keyboard(questions_left, user.telegram_id)
-        )
+        text = MAIN_MENU_TEXT.format(**info)
+        keyboard = get_main_menu_keyboard(questions_left, user.telegram_id)
+
+    if preserve_message:
+        # Убираем кнопки из прогноза, отправляем меню новым сообщением
+        try:
+            await callback.message.edit_reply_markup(reply_markup=None)
+        except:
+            pass
+        await callback.message.reply(text, reply_markup=keyboard)
+    else:
+        await callback.message.edit_text(text, reply_markup=keyboard)
 
 
 async def process_support_message(client: Client, message: Message, user: User) -> bool:
@@ -868,7 +872,7 @@ def register_handlers(app: Client):
 
     # Callback кнопки
     callback_filter = filters.regex(
-        r"^(back_main|how_it_works|help|help_method|"
+        r"^(back_main|back_main_keep|how_it_works|help|help_method|"
         r"forecast_today|forecast_period|forecast_3d|forecast_week|forecast_month|"
         r"forecast_date|cal_nav_|cal_day_|cal_ignore|"
         r"ask_question|ask_about_forecast:|"
