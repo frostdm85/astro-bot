@@ -238,18 +238,23 @@ async def check_important_transits(app):
     Проверка важных транзитов (точные аспекты на ближайшие 3 дня)
     Вызывается каждые 6 часов
 
+    - Отправляет уведомления только с 10:00 до 21:00 по локальному времени пользователя
     - Исключает Луну и Солнце (только тяжёлые планеты)
-    - Показывает дату и время точного аспекта
-    - Предупреждает заранее
+    - Показывает только будущие транзиты (не прошедшие)
     """
     from database.models import User
     from services.astro_engine import calculate_transits, calculate_local_natal
     from services.geocoder import get_timezone_offset
+    import pytz
 
     logger.info("Проверка важных транзитов (тяжёлые планеты)...")
 
     # Планеты для исключения из уведомлений
     EXCLUDE_PLANETS = {'Луна', 'Солнце'}
+
+    # Время отправки уведомлений (локальное время пользователя)
+    NOTIFY_START_HOUR = 10  # с 10:00
+    NOTIFY_END_HOUR = 21    # до 21:00
 
     # Пользователи с включёнными уведомлениями
     users = User.select().where(
@@ -263,14 +268,26 @@ async def check_important_transits(app):
             continue
 
         try:
-            # Часовые пояса (как в Mini App и forecast.py)
-            birth_tz_hours = get_timezone_offset(user.birth_tz or "Europe/Moscow", user.birth_date)
-            display_tz_hours = get_timezone_offset(
-                user.residence_tz or user.birth_tz or "Europe/Moscow",
-                date.today()
-            )
+            # Определяем локальное время пользователя
+            tz_name = user.residence_tz or user.birth_tz or "Europe/Moscow"
+            try:
+                tz = pytz.timezone(tz_name)
+                user_now = datetime.now(tz)
+                user_hour = user_now.hour
+            except Exception:
+                # Fallback: MSK (UTC+3)
+                user_now = datetime.utcnow() + timedelta(hours=3)
+                user_hour = user_now.hour
 
-            # Рассчитываем натальную карту (как в Mini App)
+            # Проверяем, что сейчас подходящее время для уведомлений (10:00 - 21:00)
+            if not (NOTIFY_START_HOUR <= user_hour < NOTIFY_END_HOUR):
+                continue
+
+            # Часовые пояса для расчётов
+            birth_tz_hours = get_timezone_offset(user.birth_tz or "Europe/Moscow", user.birth_date)
+            display_tz_hours = get_timezone_offset(tz_name, date.today())
+
+            # Рассчитываем натальную карту
             natal = calculate_local_natal(
                 birth_date=user.birth_date,
                 birth_time=user.birth_time,
@@ -293,10 +310,14 @@ async def check_important_transits(app):
                 transit_cusps_tz=display_tz_hours
             )
 
-            # Фильтруем: только тяжёлые планеты (исключаем Луну и Солнце)
+            # Фильтруем:
+            # 1. Только тяжёлые планеты (исключаем Луну и Солнце)
+            # 2. Только будущие транзиты (exact_datetime > сейчас)
+            now_naive = user_now.replace(tzinfo=None)
             heavy_transits = [
                 t for t in transits
                 if t.get('transit_planet') not in EXCLUDE_PLANETS
+                and t.get('exact_datetime') and t.get('exact_datetime') > now_naive
             ]
 
             if not heavy_transits:
@@ -309,12 +330,8 @@ async def check_important_transits(app):
             aspect_lines = []
             for t in upcoming:
                 exact_dt = t.get('exact_datetime')
-                if exact_dt:
-                    date_str = exact_dt.strftime("%d.%m %H:%M")
-                else:
-                    date_str = "скоро"
+                date_str = exact_dt.strftime("%d.%m %H:%M") if exact_dt else "скоро"
 
-                # Формат: ♃ Юпитер □ ♅ Уран — 15.01 14:30
                 transit_sym = t.get('transit_symbol', '')
                 transit_name = t.get('transit_planet', '')
                 aspect_sym = t.get('aspect_symbol', '')
@@ -333,7 +350,7 @@ async def check_important_transits(app):
                 f"🔔 <b>Важные транзиты на ближайшие дни</b>\n\n"
                 f"{aspect_text}\n\n"
                 f"💡 Откройте прогноз на указанные даты для подробностей.",
-                reply_markup=None  # Можно добавить кнопку "Открыть прогнозы"
+                reply_markup=None
             )
             logger.info(f"Уведомление о транзитах: {user.telegram_id}, аспектов: {len(upcoming)}")
 
