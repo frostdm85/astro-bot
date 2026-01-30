@@ -49,6 +49,12 @@ BOT_RETURN_URL = f"https://t.me/{BOT_USERNAME}"
 # Mini App URL (для локальной разработки — localhost, для прода — публичный URL)
 WEBAPP_URL = os.getenv("WEBAPP_URL", "https://your-domain.com")
 
+# Юридические документы
+DOCS_OFFER = "https://disk.yandex.ru/d/CTe2fBbWrwolfg"  # Договор-оферта
+DOCS_PD_CONSENT = "https://disk.yandex.ru/i/J8_SAQJ9b5Ewcg"  # Согласие на обработку ПД
+DOCS_PRIVACY_POLICY = "https://disk.yandex.ru/i/INC_GXZ5ZzJ1_w"  # Политика обработки ПД
+DOCS_MARKETING_CONSENT = "https://disk.yandex.ru/i/TvOndS5KmoUsyw"  # Согласие на рассылку
+
 # Валидация
 if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN не задан в .env")

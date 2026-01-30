@@ -22,7 +22,13 @@ logger = logging.getLogger(__name__)
 ssl_context = ssl.create_default_context(cafile=certifi.where())
 
 # Инициализация геокодера с SSL
-geolocator = Nominatim(user_agent="astro_bot_geocoder", ssl_context=ssl_context)
+# Nominatim требует корректный User-Agent с контактной информацией
+# https://operations.osmfoundation.org/policies/nominatim/
+geolocator = Nominatim(
+    user_agent="AstroBot/1.0 (https://orionastro.ru; astro@orionastro.ru)",
+    ssl_context=ssl_context,
+    timeout=15
+)
 tf = TimezoneFinder()
 
 
@@ -203,15 +209,34 @@ def format_coordinates(lat: float, lon: float) -> str:
 
 
 # Популярные города для быстрого доступа (кэш)
+# Список формируется вручную - основные города России, Украины, Беларуси
 POPULAR_CITIES = {
+    # Города-миллионники России
     "москва": GeoLocation("Москва", "Россия", 55.7558, 37.6173, "Europe/Moscow", "Москва, Россия"),
     "санкт-петербург": GeoLocation("Санкт-Петербург", "Россия", 59.9343, 30.3351, "Europe/Moscow", "Санкт-Петербург, Россия"),
+    "всеволожск": GeoLocation("Всеволожск", "Россия", 60.024006, 30.646042, "Europe/Moscow", "Всеволожск, Россия"),
     "новосибирск": GeoLocation("Новосибирск", "Россия", 55.0084, 82.9357, "Asia/Novosibirsk", "Новосибирск, Россия"),
     "екатеринбург": GeoLocation("Екатеринбург", "Россия", 56.8389, 60.6057, "Asia/Yekaterinburg", "Екатеринбург, Россия"),
     "казань": GeoLocation("Казань", "Россия", 55.7887, 49.1221, "Europe/Moscow", "Казань, Россия"),
     "нижний новгород": GeoLocation("Нижний Новгород", "Россия", 56.2965, 43.9361, "Europe/Moscow", "Нижний Новгород, Россия"),
+    "челябинск": GeoLocation("Челябинск", "Россия", 55.1644, 61.4368, "Asia/Yekaterinburg", "Челябинск, Россия"),
+    "самара": GeoLocation("Самара", "Россия", 53.2001, 50.1500, "Europe/Samara", "Самара, Россия"),
+    "омск": GeoLocation("Омск", "Россия", 54.9885, 73.3242, "Asia/Omsk", "Омск, Россия"),
+    "ростов-на-дону": GeoLocation("Ростов-на-Дону", "Россия", 47.2357, 39.7015, "Europe/Moscow", "Ростов-на-Дону, Россия"),
+    "уфа": GeoLocation("Уфа", "Россия", 54.7388, 55.9721, "Asia/Yekaterinburg", "Уфа, Россия"),
+    "красноярск": GeoLocation("Красноярск", "Россия", 56.0153, 92.8932, "Asia/Krasnoyarsk", "Красноярск, Россия"),
+    "воронеж": GeoLocation("Воронеж", "Россия", 51.6720, 39.1843, "Europe/Moscow", "Воронеж, Россия"),
+    "пермь": GeoLocation("Пермь", "Россия", 58.0105, 56.2502, "Asia/Yekaterinburg", "Пермь, Россия"),
+    "волгоград": GeoLocation("Волгоград", "Россия", 48.7080, 44.5133, "Europe/Volgograd", "Волгоград, Россия"),
+
+    # Крупные города и курорты
+    "владивосток": GeoLocation("Владивосток", "Россия", 43.1156, 131.8854, "Asia/Vladivostok", "Владивосток, Россия"),
     "краснодар": GeoLocation("Краснодар", "Россия", 45.0355, 38.9753, "Europe/Moscow", "Краснодар, Россия"),
     "сочи": GeoLocation("Сочи", "Россия", 43.6028, 39.7342, "Europe/Moscow", "Сочи, Россия"),
+    "новокузнецк": GeoLocation("Новокузнецк", "Россия", 53.7557, 87.1099, "Asia/Novokuznetsk", "Новокузнецк, Россия"),
+    "кемерово": GeoLocation("Кемерово", "Россия", 55.3547, 86.0861, "Asia/Novokuznetsk", "Кемерово, Россия"),
+
+    # Украина и Беларусь
     "киев": GeoLocation("Киев", "Украина", 50.4501, 30.5234, "Europe/Kiev", "Киев, Украина"),
     "минск": GeoLocation("Минск", "Беларусь", 53.9045, 27.5615, "Europe/Minsk", "Минск, Беларусь"),
 }

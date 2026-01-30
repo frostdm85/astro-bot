@@ -846,6 +846,22 @@ async def admin_callback(client: Client, callback: CallbackQuery):
         except User.DoesNotExist:
             await callback.answer("Пользователь не найден", show_alert=True)
 
+    elif data.startswith("adm_reset_forecasts_"):
+        user_id = int(data.replace("adm_reset_forecasts_", ""))
+        try:
+            user = User.get_by_id(user_id)
+            # Удаляем все прогнозы для этого пользователя
+            deleted_count = Forecast.delete().where(Forecast.user == user).execute()
+
+            await callback.answer(f"Удалено прогнозов: {deleted_count}", show_alert=True)
+            await callback.message.edit_text(
+                f"✅ Прогнозы сброшены для {user.display_name}\n\n"
+                f"Удалено: {deleted_count} прогнозов",
+                reply_markup=get_admin_user_card_keyboard(user_id)
+            )
+        except User.DoesNotExist:
+            await callback.answer("Пользователь не найден", show_alert=True)
+
     elif data.startswith("adm_delete_"):
         user_id = int(data.replace("adm_delete_", ""))
         try:

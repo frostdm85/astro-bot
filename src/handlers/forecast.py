@@ -121,14 +121,20 @@ async def generate_daily_forecast(
 
     Args:
         user: Объект пользователя с натальными данными
-        target_date: Дата прогноза (по умолчанию — сегодня)
+        target_date: Дата прогноза (по умолчанию — сегодня в часовом поясе пользователя)
         save_to_db: Сохранять ли прогноз в БД
 
     Returns:
         Словарь с данными прогноза
     """
     if target_date is None:
-        target_date = date.today()
+        # Используем локальное время пользователя, а не серверное (MSK)
+        from datetime import datetime
+        import pytz
+
+        user_tz_name = user.residence_tz or user.birth_tz or "Europe/Moscow"
+        user_tz = pytz.timezone(user_tz_name)
+        target_date = datetime.now(user_tz).date()
 
     # Проверяем наличие натальных данных
     if not user.natal_data_complete:
@@ -244,7 +250,13 @@ async def generate_period_forecast(
     Returns:
         Словарь с данными прогноза
     """
-    today = date.today()
+    # Используем локальное время пользователя
+    from datetime import datetime
+    import pytz
+
+    user_tz_name = user.residence_tz or user.birth_tz or "Europe/Moscow"
+    user_tz = pytz.timezone(user_tz_name)
+    today = datetime.now(user_tz).date()
 
     # Определяем период
     period_days = {
@@ -491,8 +503,15 @@ async def handle_forecast_today(client: Client, callback: CallbackQuery, user: U
     """Обработка запроса прогноза на сегодня"""
     await callback.answer("Генерирую прогноз...")
 
+    # Определяем "сегодня" в ЛОКАЛЬНОМ времени пользователя (не MSK!)
+    from datetime import datetime
+    import pytz
+
+    user_tz_name = user.residence_tz or user.birth_tz or "Europe/Moscow"
+    user_tz = pytz.timezone(user_tz_name)
+    today = datetime.now(user_tz).date()
+
     # Показываем сообщение о генерации
-    today = date.today()
     await callback.message.edit_text(
         FORECAST_GENERATING_TEXT.format(date=today.strftime("%d.%m.%Y"))
     )
@@ -645,7 +664,13 @@ async def send_daily_forecast(client: Client, user: User):
         return False
 
     try:
-        today = date.today()
+        # Используем локальное время пользователя для определения "сегодня"
+        from datetime import datetime
+        import pytz
+
+        user_tz_name = user.residence_tz or user.birth_tz or "Europe/Moscow"
+        user_tz = pytz.timezone(user_tz_name)
+        today = datetime.now(user_tz).date()
 
         # Проверяем, есть ли уже прогноз на сегодня в базе
         existing_forecast = Forecast.select().where(

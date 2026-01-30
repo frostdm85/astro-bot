@@ -46,12 +46,14 @@ app = Client(
 
 def register_all_handlers():
     """Регистрация всех обработчиков"""
-    from handlers import start, admin, forecast, questions
+    from handlers import start, admin, forecast, questions, data_collection, subscription
 
     start.register_handlers(app)
     admin.register_handlers(app)
     forecast.register_handlers(app)
     questions.register_handlers(app)
+    data_collection.register_handlers(app)
+    subscription.register_handlers(app)
 
     logger.info("Все обработчики зарегистрированы")
 
@@ -85,7 +87,6 @@ async def startup():
     try:
         await app.set_bot_commands([
             BotCommand("start", "🏠 Главное меню"),
-            BotCommand("webapp", "🌟 Открыть приложение"),
             BotCommand("help", "ℹ️ Справка"),
             BotCommand("support", "👨‍💻 Поддержка"),
         ])
@@ -154,9 +155,31 @@ if __name__ == "__main__":
 
     # Запускаем бота через app.run()
     try:
-        app.run()
+        app.start()
+        logger.info("Pyrogram клиент запущен")
+
+        # Отправляем уведомление админу о запуске
+        try:
+            app.send_message(ADMIN_ID, "🚀 <b>Астро-бот запущен</b>")
+            logger.info("Уведомление админу отправлено")
+        except Exception as e:
+            logger.error(f"Не удалось уведомить админа: {e}")
+
+        logger.info("Бот успешно запущен, ожидаем сообщения...")
+        from pyrogram import idle
+        idle()
     except KeyboardInterrupt:
         logger.info("Получен сигнал остановки (Ctrl+C)")
+        try:
+            app.send_message(ADMIN_ID, "🛑 <b>Астро-бот остановлен</b>")
+        except:
+            pass
+        app.stop()
     except Exception as e:
         logger.exception(f"Критическая ошибка: {e}")
+        try:
+            app.send_message(ADMIN_ID, f"❌ <b>Астро-бот упал</b>\n\n{str(e)}")
+        except:
+            pass
+        app.stop()
         sys.exit(1)

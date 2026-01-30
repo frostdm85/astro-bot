@@ -17,6 +17,7 @@ from pyrogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineK
 
 from database.models import User
 from services.data_collection_service import notify_admin_data_submitted
+from config import DOCS_PD_CONSENT, DOCS_PRIVACY_POLICY
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +106,15 @@ def validate_city(text: str) -> tuple[bool, str, str]:
 
 # ============== ТЕКСТЫ ==============
 
+CONSENT_TEXT = f"""📋 <b>Согласие на обработку персональных данных</b>
+
+Для предоставления персональных астрологических прогнозов нам необходимо собрать и обработать некоторые данные о Вас.
+
+Нажимая кнопку "Согласен", вы даёте согласие на обработку персональных данных в соответствии с 152-ФЗ "О персональных данных".
+
+📄 <a href="{DOCS_PD_CONSENT}">Согласие на обработку ПД</a>
+📄 <a href="{DOCS_PRIVACY_POLICY}">Политика в области обработки ПД</a>"""
+
 DATA_START_TEXT = """📝 <b>Заполнение данных для прогнозов</b>
 
 Для точных астрологических прогнозов нужна следующая информация:
@@ -161,9 +171,41 @@ DATA_COMPLETE_TEXT = """✅ <b>Данные сохранены!</b>
 
 # ============== ОБРАБОТЧИКИ ==============
 
-async def handle_data_start(client: Client, callback: CallbackQuery, user: User):
-    """Начало сбора данных"""
+async def handle_data_consent(client: Client, callback: CallbackQuery, user: User):
+    """Показать экран согласия на обработку ПД"""
     await callback.answer()
+
+    await callback.message.edit_text(
+        CONSENT_TEXT,
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("✅ Согласен", callback_data="data:consent_accept")],
+            [InlineKeyboardButton("❌ Отмена", callback_data="data:cancel")]
+        ])
+    )
+
+
+async def handle_consent_accept(client: Client, callback: CallbackQuery, user: User):
+    """Обработка принятия согласия"""
+    await callback.answer()
+
+    # Сохраняем согласие в БД
+    user.consent_given = True
+    user.consent_given_at = datetime.now()
+    user.save()
+
+    logger.info(f"Пользователь {user.telegram_id} дал согласие на обработку ПД")
+
+    # Начинаем сбор данных
+    await handle_data_start(client, callback, user)
+
+
+async def handle_data_start(client: Client, callback: CallbackQuery, user: User):
+    """Начало сбора данных (после согласия)"""
+    # Проверяем наличие согласия
+    if not user.consent_given:
+        await callback.answer("Сначала необходимо дать согласие на обработку данных", show_alert=True)
+        await handle_data_consent(client, callback, user)
+        return
 
     # Устанавливаем состояние ожидания даты рождения
     set_data_state(user.telegram_id, "birth_date_waiting")
@@ -468,7 +510,7 @@ def register_handlers(app: Client):
     logger.info("Регистрация обработчиков data_collection.py...")
 
     # Callback обработчики
-    data_callback_filter = filters.regex(r"^(data:start|data:cancel|data:skip_marriage|data:skip_marriage_city)$")
+    data_callback_filter = filters.regex(r"^(data:consent|data:consent_accept|data:start|data:cancel|data:skip_marriage|data:skip_marriage_city)$")
 
     async def data_callback_router(client: Client, callback: CallbackQuery):
         """Роутер callback-кнопок сбора данных"""
@@ -480,7 +522,11 @@ def register_handlers(app: Client):
             await callback.answer("Пользователь не найден", show_alert=True)
             return
 
-        if data == "data:start":
+        if data == "data:consent":
+            await handle_data_consent(client, callback, user)
+        elif data == "data:consent_accept":
+            await handle_consent_accept(client, callback, user)
+        elif data == "data:start":
             await handle_data_start(client, callback, user)
         elif data == "data:cancel":
             await handle_data_cancel(callback)

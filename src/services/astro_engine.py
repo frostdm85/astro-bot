@@ -2102,58 +2102,154 @@ def get_moon_phase_info(dt: datetime = None) -> Dict:
     }
 
 
+def find_exact_new_moon(from_date: datetime) -> datetime:
+    """
+    Точный поиск новолуния (elongation = 0°) с точностью до минуты.
+    Возвращает datetime в МСК.
+    """
+    # Конвертируем в UTC для расчётов (вычитаем 3 часа)
+    dt_utc = from_date - timedelta(hours=3)
+    jd_start = datetime_to_julian(dt_utc, 0)
+
+    best_jd = None
+    best_diff = 360.0
+
+    # Ищем в диапазоне 35 дней
+    for day in range(35):
+        jd_day = jd_start + day
+
+        # Проверяем грубо по дням
+        sun_lon = swe.calc_ut(jd_day, swe.SUN)[0][0]
+        moon_lon = swe.calc_ut(jd_day, swe.MOON)[0][0]
+        elongation = (moon_lon - sun_lon) % 360
+
+        # Если elongation близка к 0° или 360° - уточняем по минутам
+        if elongation < 15 or elongation > 345:
+            for minute in range(24 * 60):
+                jd = jd_day + minute / (24 * 60)
+
+                sun_lon = swe.calc_ut(jd, swe.SUN)[0][0]
+                moon_lon = swe.calc_ut(jd, swe.MOON)[0][0]
+                elongation = (moon_lon - sun_lon) % 360
+
+                # Расстояние от 0° (с учётом цикличности 360°)
+                diff = min(elongation, 360 - elongation)
+
+                if diff < best_diff:
+                    best_diff = diff
+                    best_jd = jd
+
+            break  # Нашли день, выходим
+
+    if best_jd is None:
+        return from_date + timedelta(days=29)
+
+    # Конвертируем в МСК (+3 часа)
+    return julian_to_datetime(best_jd, 3.0)
+
+
+def find_exact_full_moon(from_date: datetime) -> datetime:
+    """
+    Точный поиск полнолуния (elongation = 180°) с точностью до минуты.
+    Возвращает datetime в МСК.
+    """
+    # Конвертируем в UTC для расчётов
+    dt_utc = from_date - timedelta(hours=3)
+    jd_start = datetime_to_julian(dt_utc, 0)
+
+    best_jd = None
+    best_diff = 360.0
+
+    # Ищем в диапазоне 35 дней
+    for day in range(35):
+        jd_day = jd_start + day
+
+        # Проверяем грубо по дням
+        sun_lon = swe.calc_ut(jd_day, swe.SUN)[0][0]
+        moon_lon = swe.calc_ut(jd_day, swe.MOON)[0][0]
+        elongation = (moon_lon - sun_lon) % 360
+
+        # Если elongation близка к 180° - уточняем по минутам
+        if 165 < elongation < 195:
+            for minute in range(24 * 60):
+                jd = jd_day + minute / (24 * 60)
+
+                sun_lon = swe.calc_ut(jd, swe.SUN)[0][0]
+                moon_lon = swe.calc_ut(jd, swe.MOON)[0][0]
+                elongation = (moon_lon - sun_lon) % 360
+
+                # Расстояние от 180°
+                diff = abs(elongation - 180.0)
+
+                if diff < best_diff:
+                    best_diff = diff
+                    best_jd = jd
+
+            break  # Нашли день, выходим
+
+    if best_jd is None:
+        return from_date + timedelta(days=15)
+
+    # Конвертируем в МСК (+3 часа)
+    return julian_to_datetime(best_jd, 3.0)
+
+
+# Оставляем старые функции для обратной совместимости
 def find_next_new_moon(from_date: datetime = None) -> datetime:
     """Найти дату следующего новолуния."""
     if from_date is None:
         from_date = datetime.now()
-
-    jd = datetime_to_julian(from_date)
-
-    # Ищем момент когда Луна-Солнце = 0°
-    for day_offset in range(30):
-        check_jd = jd + day_offset
-        sun_lon = swe.calc_ut(check_jd, swe.SUN)[0][0]
-        moon_lon = swe.calc_ut(check_jd, swe.MOON)[0][0]
-        elongation = (moon_lon - sun_lon) % 360
-
-        if elongation < 12 or elongation > 348:
-            # Уточняем время
-            for hour in range(24):
-                check_jd_h = check_jd + hour / 24
-                sun_lon = swe.calc_ut(check_jd_h, swe.SUN)[0][0]
-                moon_lon = swe.calc_ut(check_jd_h, swe.MOON)[0][0]
-                elongation = (moon_lon - sun_lon) % 360
-                if elongation < 6 or elongation > 354:
-                    return julian_to_datetime(check_jd_h)
-
-    return from_date + timedelta(days=29)
+    return find_exact_new_moon(from_date)
 
 
 def find_next_full_moon(from_date: datetime = None) -> datetime:
     """Найти дату следующего полнолуния."""
     if from_date is None:
         from_date = datetime.now()
+    return find_exact_full_moon(from_date)
 
-    jd = datetime_to_julian(from_date)
 
-    # Ищем момент когда Луна-Солнце = 180°
-    for day_offset in range(30):
-        check_jd = jd + day_offset
-        sun_lon = swe.calc_ut(check_jd, swe.SUN)[0][0]
-        moon_lon = swe.calc_ut(check_jd, swe.MOON)[0][0]
-        elongation = (moon_lon - sun_lon) % 360
+def get_next_moon_phases(dt: datetime = None) -> List[Dict]:
+    """
+    Получить 2 ближайшие лунные фазы вперёд (новолуние и полнолуние).
 
-        if 168 < elongation < 192:
-            # Уточняем время
-            for hour in range(24):
-                check_jd_h = check_jd + hour / 24
-                sun_lon = swe.calc_ut(check_jd_h, swe.SUN)[0][0]
-                moon_lon = swe.calc_ut(check_jd_h, swe.MOON)[0][0]
-                elongation = (moon_lon - sun_lon) % 360
-                if 174 < elongation < 186:
-                    return julian_to_datetime(check_jd_h)
+    Returns:
+        Список из 2 фаз в хронологическом порядке
+    """
+    if dt is None:
+        dt = datetime.now()
 
-    return from_date + timedelta(days=15)
+    # Находим следующие новолуние и полнолуние
+    next_new = find_exact_new_moon(dt)
+    next_full = find_exact_full_moon(dt)
+
+    phases = []
+
+    # Новолуние
+    phases.append({
+        "type": "new_moon",
+        "type_ru": "Новолуние",
+        "emoji": "🌑",
+        "date": next_new.strftime("%d.%m.%Y"),
+        "time": next_new.strftime("%H:%M МСК"),
+        "datetime_msk": next_new
+    })
+
+    # Полнолуние
+    phases.append({
+        "type": "full_moon",
+        "type_ru": "Полнолуние",
+        "emoji": "🌕",
+        "date": next_full.strftime("%d.%m.%Y"),
+        "time": next_full.strftime("%H:%M МСК"),
+        "datetime_msk": next_full
+    })
+
+    # Сортируем по времени (ближайшая фаза первой)
+    phases.sort(key=lambda x: x["datetime_msk"])
+
+    # Возвращаем только 2 ближайшие
+    return phases[:2]
 
 
 def find_next_eclipses(from_date: datetime = None, count: int = 2) -> List[Dict]:
@@ -2208,9 +2304,10 @@ def find_next_eclipses(from_date: datetime = None, count: int = 2) -> List[Dict]
 def get_full_moon_info(dt: datetime = None) -> Dict:
     """
     Получить полную информацию о Луне для виджета.
+    Обновлённая версия с точными датами и временем.
 
     Returns:
-        Словарь со всей информацией о Луне
+        Словарь со всей информацией о Луне + 2 ближайшие фазы
     """
     if dt is None:
         dt = datetime.now()
@@ -2218,17 +2315,18 @@ def get_full_moon_info(dt: datetime = None) -> Dict:
     # Текущая фаза
     phase_info = get_moon_phase_info(dt)
 
-    # Ближайшие новолуние и полнолуние
-    next_new = find_next_new_moon(dt)
-    next_full = find_next_full_moon(dt)
+    # Получаем 2 ближайшие фазы
+    next_phases = get_next_moon_phases(dt)
 
     # Ближайшие затмения
     eclipses = find_next_eclipses(dt, 2)
 
     return {
         **phase_info,
-        "next_new_moon": next_new.strftime("%d.%m.%Y"),
-        "next_full_moon": next_full.strftime("%d.%m.%Y"),
+        "next_phases": next_phases,  # Новый формат: список из 2 фаз
+        # Для обратной совместимости оставляем старые поля
+        "next_new_moon": next_phases[0]["date"] + " " + next_phases[0]["time"] if next_phases[0]["type"] == "new_moon" else next_phases[1]["date"] + " " + next_phases[1]["time"],
+        "next_full_moon": next_phases[0]["date"] + " " + next_phases[0]["time"] if next_phases[0]["type"] == "full_moon" else next_phases[1]["date"] + " " + next_phases[1]["time"],
         "eclipses": eclipses,
     }
 

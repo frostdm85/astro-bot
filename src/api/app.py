@@ -852,31 +852,21 @@ async def get_calendar(
                     else:
                         day["locked"] = False
 
-                # Вычисляем лунные фазы (даже для кэша, так как они статичны)
-                from services.astro_engine import find_exact_new_moon, find_exact_full_moon
+                # Получаем лунные фазы из БД (мгновенно)
+                from database.models import MoonPhase
                 moon_phases = []
 
-                # Ищем новолуние
-                new_moon_dt = find_exact_new_moon(datetime.combine(first_day, datetime.min.time()))
-                if first_day <= new_moon_dt.date() <= last_day:
-                    moon_phases.append({"type": "new_moon", "date": new_moon_dt.strftime("%d.%m.%Y"), "time": new_moon_dt.strftime("%H:%M")})
+                phases_db = MoonPhase.select().where(
+                    (MoonPhase.phase_date >= first_day) &
+                    (MoonPhase.phase_date <= last_day)
+                ).order_by(MoonPhase.phase_datetime)
 
-                # Ищем полнолуние
-                full_moon_dt = find_exact_full_moon(datetime.combine(first_day, datetime.min.time()))
-                if first_day <= full_moon_dt.date() <= last_day:
-                    moon_phases.append({"type": "full_moon", "date": full_moon_dt.strftime("%d.%m.%Y"), "time": full_moon_dt.strftime("%H:%M")})
-
-                # Второе новолуние (если первое до месяца)
-                if new_moon_dt.date() < first_day:
-                    new_moon_dt = find_exact_new_moon(new_moon_dt + timedelta(days=20))
-                    if first_day <= new_moon_dt.date() <= last_day:
-                        moon_phases.append({"type": "new_moon", "date": new_moon_dt.strftime("%d.%m.%Y"), "time": new_moon_dt.strftime("%H:%M")})
-
-                # Второе полнолуние (если первое до месяца)
-                if full_moon_dt.date() < first_day:
-                    full_moon_dt = find_exact_full_moon(full_moon_dt + timedelta(days=20))
-                    if first_day <= full_moon_dt.date() <= last_day:
-                        moon_phases.append({"type": "full_moon", "date": full_moon_dt.strftime("%d.%m.%Y"), "time": full_moon_dt.strftime("%H:%M")})
+                for phase in phases_db:
+                    moon_phases.append({
+                        "type": phase.phase_type,
+                        "date": phase.phase_date.strftime("%d.%m.%Y"),
+                        "time": phase.phase_time
+                    })
 
                 return {
                     "year": year,
@@ -995,47 +985,21 @@ async def get_calendar(
                     "locked": False
                 })
 
-        # Вычисляем новолуния и полнолуния в этом месяце
-        from services.astro_engine import find_exact_new_moon, find_exact_full_moon
+        # Получаем лунные фазы из БД (предрасчитанные)
+        from database.models import MoonPhase
         moon_phases = []
 
-        # Ищем новолуние в начале месяца
-        new_moon_dt = find_exact_new_moon(datetime.combine(first_day, datetime.min.time()))
-        if first_day <= new_moon_dt.date() <= last_day:
+        phases_db = MoonPhase.select().where(
+            (MoonPhase.phase_date >= first_day) &
+            (MoonPhase.phase_date <= last_day)
+        ).order_by(MoonPhase.phase_datetime)
+
+        for phase in phases_db:
             moon_phases.append({
-                "type": "new_moon",
-                "date": new_moon_dt.strftime("%d.%m.%Y"),
-                "time": new_moon_dt.strftime("%H:%M")
+                "type": phase.phase_type,
+                "date": phase.phase_date.strftime("%d.%m.%Y"),
+                "time": phase.phase_time
             })
-
-        # Ищем полнолуние в начале месяца
-        full_moon_dt = find_exact_full_moon(datetime.combine(first_day, datetime.min.time()))
-        if first_day <= full_moon_dt.date() <= last_day:
-            moon_phases.append({
-                "type": "full_moon",
-                "date": full_moon_dt.strftime("%d.%m.%Y"),
-                "time": full_moon_dt.strftime("%H:%M")
-            })
-
-        # Ищем следующее новолуние (если первое было до месяца)
-        if new_moon_dt.date() < first_day:
-            new_moon_dt = find_exact_new_moon(new_moon_dt + timedelta(days=20))
-            if first_day <= new_moon_dt.date() <= last_day:
-                moon_phases.append({
-                    "type": "new_moon",
-                    "date": new_moon_dt.strftime("%d.%m.%Y"),
-                    "time": new_moon_dt.strftime("%H:%M")
-                })
-
-        # Ищем следующее полнолуние (если первое было до месяца)
-        if full_moon_dt.date() < first_day:
-            full_moon_dt = find_exact_full_moon(full_moon_dt + timedelta(days=20))
-            if first_day <= full_moon_dt.date() <= last_day:
-                moon_phases.append({
-                    "type": "full_moon",
-                    "date": full_moon_dt.strftime("%d.%m.%Y"),
-                    "time": full_moon_dt.strftime("%H:%M")
-                })
 
         # Сохраняем в кэш БД (TTL 30 дней)
         CalendarCache.save_cache(user_id, year, month, calendar_days, ttl_days=30)

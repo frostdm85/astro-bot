@@ -68,6 +68,10 @@ class User(BaseModel):
     user_data_submitted = BooleanField(default=False)
     user_data_submitted_at = DateTimeField(null=True)
 
+    # Согласие на обработку персональных данных
+    consent_given = BooleanField(default=False)
+    consent_given_at = DateTimeField(null=True)
+
     # Настройки
     forecast_time = CharField(default="09:00")
     push_forecast = BooleanField(default=True)  # Утренний прогноз вкл/выкл
@@ -406,6 +410,37 @@ class SupportMessage(BaseModel):
         table_name = 'support_messages'
 
 
+class MoonPhase(BaseModel):
+    """Предрасчитанные лунные фазы (new_moon, full_moon)"""
+
+    phase_type = CharField()  # new_moon, full_moon
+    phase_date = DateField()
+    phase_time = CharField()  # HH:MM
+    phase_datetime = DateTimeField()  # Полный datetime для сортировки
+
+    class Meta:
+        table_name = 'moon_phases'
+        indexes = (
+            (('phase_date',), False),
+        )
+
+
+class Eclipse(BaseModel):
+    """Предрасчитанные затмения"""
+
+    eclipse_type = CharField()  # solar, lunar
+    eclipse_date = DateField()
+    eclipse_time = CharField()  # HH:MM
+    eclipse_datetime = DateTimeField()
+    description = TextField(null=True)
+
+    class Meta:
+        table_name = 'eclipses'
+        indexes = (
+            (('eclipse_date',), False),
+        )
+
+
 # ============== МИГРАЦИИ ==============
 
 def run_migrations():
@@ -437,6 +472,15 @@ def run_migrations():
         logger.info("Добавление поля user_data_submitted_at в таблицу users")
         migrations.append(migrator.add_column('users', 'user_data_submitted_at', DateTimeField(null=True)))
 
+    # Миграция: добавление полей согласия на обработку ПД
+    if 'consent_given' not in columns:
+        logger.info("Добавление поля consent_given в таблицу users")
+        migrations.append(migrator.add_column('users', 'consent_given', BooleanField(default=False)))
+
+    if 'consent_given_at' not in columns:
+        logger.info("Добавление поля consent_given_at в таблицу users")
+        migrations.append(migrator.add_column('users', 'consent_given_at', DateTimeField(null=True)))
+
     # Выполнить все миграции
     if migrations:
         run_migrate(*migrations)
@@ -457,12 +501,17 @@ def init_db():
         Conversation,
         CalendarCache,
         SupportTicket,
-        SupportMessage
+        SupportMessage,
+        MoonPhase,
+        Eclipse
     ], safe=True)
     logger.info("База данных инициализирована")
 
     # Запускаем миграции
     run_migrations()
+
+    # Предрасчитываем лунные фазы если их нет
+    precalculate_moon_phases_if_needed()
 
 
 def get_or_create_user(
@@ -538,3 +587,76 @@ def get_stats() -> dict:
         'expired': expired,
         'total_revenue': total_revenue
     }
+
+
+def precalculate_moon_phases_if_needed():
+    """
+    Предрасчёт лунных фаз на год вперёд.
+    Вызывается при инициализации БД.
+    Лунные фазы одинаковы для всех пользователей.
+    """
+    from datetime import timedelta
+
+    # Проверяем есть ли фазы на будущее (на 30 дней вперёд)
+    today = date.today()
+    future_date = today + timedelta(days=30)
+
+    existing_count = MoonPhase.select().where(
+        MoonPhase.phase_date >= today,
+        MoonPhase.phase_date <= future_date
+    ).count()
+
+    # Если есть хотя бы 1 фаза в будущем - пропускаем расчёт
+    if existing_count > 0:
+        logger.info(f"Moon phases already calculated: {existing_count} phases found")
+        return
+
+    logger.info("Precalculating moon phases for next 365 days...")
+
+    from services.astro_engine import find_exact_new_moon, find_exact_full_moon
+
+    # Рассчитываем с начала текущего месяца на год вперёд
+    start_dt = datetime.combine(date(today.year, today.month, 1), datetime.min.time())
+    phases_to_create = []
+    end_date = today + timedelta(days=365)
+
+    # Начинаем с новолуния
+    current_dt = start_dt
+    for i in range(26):  # ~26 фаз в году (чередование new/full каждые ~14 дней)
+        if i % 2 == 0:
+            # Чётная итерация - новолуние
+            phase_dt = find_exact_new_moon(current_dt)
+            phase_type = 'new_moon'
+        else:
+            # Нечётная итерация - полнолуние
+            phase_dt = find_exact_full_moon(current_dt)
+            phase_type = 'full_moon'
+
+        if phase_dt.date() > end_date:
+            break
+
+        phases_to_create.append({
+            'phase_type': phase_type,
+            'phase_date': phase_dt.date(),
+            'phase_time': phase_dt.strftime("%H:%M"),
+            'phase_datetime': phase_dt
+        })
+
+        # Следующая фаза через 14 дней
+        current_dt = phase_dt + timedelta(days=14)
+
+    # Удаляем дубликаты и сортируем
+    seen = set()
+    unique_phases = []
+    for phase in sorted(phases_to_create, key=lambda x: x['phase_datetime']):
+        key = (phase['phase_type'], phase['phase_date'])
+        if key not in seen:
+            seen.add(key)
+            unique_phases.append(phase)
+
+    # Массовая вставка
+    if unique_phases:
+        MoonPhase.insert_many(unique_phases).execute()
+        logger.info(f"Precalculated {len(unique_phases)} moon phases")
+    else:
+        logger.warning("No moon phases to precalculate")

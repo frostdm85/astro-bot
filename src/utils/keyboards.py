@@ -9,7 +9,11 @@ from datetime import datetime, date, timedelta
 from typing import Optional, List
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 
+import time
 from config import ADMIN_USERNAME, SUBSCRIPTION_PRICE, ADMIN_ID, WEBAPP_URL
+
+# Версия для cache busting (обновляется при каждом импорте)
+WEBAPP_VERSION = int(time.time())
 
 
 # ============== ПОЛЬЗОВАТЕЛЬСКИЕ КЛАВИАТУРЫ ==============
@@ -23,11 +27,11 @@ def get_welcome_keyboard(has_natal_data: bool = False, user_id: int = 0, user_da
         )]
     ]
 
-    # Кнопка "Заполнить данные" только если пользователь ещё не заполнил форму
-    if not user_data_submitted:
+    # Кнопка "Заполнить данные" только если нет натальных данных
+    if not has_natal_data:
         buttons.append([InlineKeyboardButton(
-            "📝 Заполнить данные ⚠️",
-            callback_data="data:start"
+            "📝 Заполнить данные",
+            callback_data="data:consent"
         )])
 
     buttons.extend([
@@ -38,8 +42,7 @@ def get_welcome_keyboard(has_natal_data: bool = False, user_id: int = 0, user_da
         [InlineKeyboardButton(
             "ℹ️ Как это работает?",
             callback_data="how_it_works"
-        )],
-        [InlineKeyboardButton("📄 Документы", callback_data="settings:privacy")]
+        )]
     ])
     # Кнопка админ-панели для админа
     if user_id == ADMIN_ID:
@@ -76,7 +79,7 @@ def get_main_menu_keyboard(questions_left: int = 10, user_id: int = 0) -> Inline
         # Главная кнопка — открывает Mini App с прогнозами
         [InlineKeyboardButton(
             "🌟 ОТКРЫТЬ ПРОГНОЗЫ 🌟",
-            web_app=WebAppInfo(url=f"{WEBAPP_URL}/webapp")
+            web_app=WebAppInfo(url=f"{WEBAPP_URL}/webapp?v={WEBAPP_VERSION}")
         )],
         # Поддержка и Документы
         [
@@ -285,8 +288,14 @@ def get_time_selection_keyboard(current_time: str = "09:00") -> InlineKeyboardMa
 
 def get_help_keyboard() -> InlineKeyboardMarkup:
     """Клавиатура справки"""
+    from config import DOCS_OFFER, DOCS_PD_CONSENT, DOCS_PRIVACY_POLICY, DOCS_MARKETING_CONSENT
+
     buttons = [
         [InlineKeyboardButton("📚 Подробнее о методе", callback_data="help_method")],
+        [InlineKeyboardButton("📋 Договор-оферта", url=DOCS_OFFER)],
+        [InlineKeyboardButton("✉️ Согласие на обработку ПД", url=DOCS_PD_CONSENT)],
+        [InlineKeyboardButton("🔒 Политика обработки ПД", url=DOCS_PRIVACY_POLICY)],
+        [InlineKeyboardButton("📬 Согласие на рассылку", url=DOCS_MARKETING_CONSENT)],
         [InlineKeyboardButton("◀️ Назад", callback_data="back_main")]
     ]
     return InlineKeyboardMarkup(buttons)
@@ -425,6 +434,7 @@ def get_admin_user_card_keyboard(user_id: int) -> InlineKeyboardMarkup:
         [InlineKeyboardButton("📨 Написать пользователю", callback_data=f"adm_msg_{user_id}")],
         [InlineKeyboardButton("🔮 Отправить прогноз сейчас", callback_data=f"adm_send_forecast_{user_id}")],
         [InlineKeyboardButton("📋 История прогнозов", callback_data=f"adm_history_{user_id}")],
+        [InlineKeyboardButton("🔄 Сбросить прогнозы", callback_data=f"adm_reset_forecasts_{user_id}")],
         [InlineKeyboardButton("🗑 Удалить пользователя", callback_data=f"adm_delete_{user_id}")],
         [InlineKeyboardButton("◀️ К списку", callback_data="adm_users")]
     ]

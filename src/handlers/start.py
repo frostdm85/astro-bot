@@ -96,17 +96,7 @@ WELCOME_NO_DATA_TEXT = """🌟 <b>Добро пожаловать в Астро-
 • 💬 Отвечаю на вопросы об астрологии
 • 🎤 Понимаю голосовые сообщения
 
-
-⏳ <b>Ваш профиль ещё не настроен</b>
-
-Для начала работы нужны ваши данные:
-• Дата рождения
-• Точное время рождения
-• Место рождения
-
-👨‍💻 <b>Напишите астрологу</b> — он внесёт ваши данные и активирует подписку.
-
-<i>Ваш астролог, Дмитрий Старков</i> ✨"""
+⏳ <b>Ваш профиль ещё не настроен</b>"""
 
 WELCOME_NO_SUB_TEXT = """🌟 <b>Астро-прогноз</b>
 
@@ -347,8 +337,8 @@ async def start_handler(client: Client, message: Message):
         await message.reply(
             WELCOME_NO_DATA_TEXT,
             reply_markup=get_welcome_keyboard(
-                user_id=user.telegram_id,
-                user_data_submitted=user.user_data_submitted
+                has_natal_data=user.natal_data_complete,
+                user_id=user.telegram_id
             )
         )
     elif not user.has_active_subscription():
@@ -867,9 +857,6 @@ def register_handlers(app: Client):
     # Команды
     app.add_handler(MessageHandler(start_handler, filters.command("start") & filters.private))
     logger.info("Обработчик /start зарегистрирован")
-    app.add_handler(MessageHandler(webapp_handler, filters.command("webapp") & filters.private))
-    app.add_handler(MessageHandler(forecast_command_handler, filters.command("forecast") & filters.private))
-    app.add_handler(MessageHandler(settings_command_handler, filters.command("settings") & filters.private))
     app.add_handler(MessageHandler(help_command_handler, filters.command("help") & filters.private))
     app.add_handler(MessageHandler(support_command_handler, filters.command("support") & filters.private))
 
