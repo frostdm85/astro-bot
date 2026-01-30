@@ -60,6 +60,14 @@ class User(BaseModel):
     residence_lon = FloatField(null=True)
     residence_tz = CharField(default="Europe/Moscow")
 
+    # Данные о браке (заполняет пользователь)
+    marriage_date = DateField(null=True)
+    marriage_city = CharField(null=True)
+
+    # Флаг сбора данных от пользователя
+    user_data_submitted = BooleanField(default=False)
+    user_data_submitted_at = DateTimeField(null=True)
+
     # Настройки
     forecast_time = CharField(default="09:00")
     push_forecast = BooleanField(default=True)  # Утренний прогноз вкл/выкл
@@ -398,6 +406,45 @@ class SupportMessage(BaseModel):
         table_name = 'support_messages'
 
 
+# ============== МИГРАЦИИ ==============
+
+def run_migrations():
+    """Выполнить миграции базы данных"""
+    from playhouse.migrate import SqliteMigrator, migrate as run_migrate
+
+    migrator = SqliteMigrator(db)
+
+    # Проверяем существующие столбцы в таблице users
+    cursor = db.execute_sql("PRAGMA table_info(users)")
+    columns = {row[1] for row in cursor.fetchall()}
+
+    migrations = []
+
+    # Миграция: добавление полей сбора данных от пользователя
+    if 'marriage_date' not in columns:
+        logger.info("Добавление поля marriage_date в таблицу users")
+        migrations.append(migrator.add_column('users', 'marriage_date', DateField(null=True)))
+
+    if 'marriage_city' not in columns:
+        logger.info("Добавление поля marriage_city в таблицу users")
+        migrations.append(migrator.add_column('users', 'marriage_city', CharField(null=True)))
+
+    if 'user_data_submitted' not in columns:
+        logger.info("Добавление поля user_data_submitted в таблицу users")
+        migrations.append(migrator.add_column('users', 'user_data_submitted', BooleanField(default=False)))
+
+    if 'user_data_submitted_at' not in columns:
+        logger.info("Добавление поля user_data_submitted_at в таблицу users")
+        migrations.append(migrator.add_column('users', 'user_data_submitted_at', DateTimeField(null=True)))
+
+    # Выполнить все миграции
+    if migrations:
+        run_migrate(*migrations)
+        logger.info(f"Выполнено миграций: {len(migrations)}")
+    else:
+        logger.info("Миграции не требуются, все поля существуют")
+
+
 # ============== ИНИЦИАЛИЗАЦИЯ ==============
 
 def init_db():
@@ -413,6 +460,9 @@ def init_db():
         SupportMessage
     ], safe=True)
     logger.info("База данных инициализирована")
+
+    # Запускаем миграции
+    run_migrations()
 
 
 def get_or_create_user(

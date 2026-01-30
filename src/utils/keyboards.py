@@ -14,9 +14,23 @@ from config import ADMIN_USERNAME, SUBSCRIPTION_PRICE, ADMIN_ID, WEBAPP_URL
 
 # ============== ПОЛЬЗОВАТЕЛЬСКИЕ КЛАВИАТУРЫ ==============
 
-def get_welcome_keyboard(has_natal_data: bool = False, user_id: int = 0) -> InlineKeyboardMarkup:
+def get_welcome_keyboard(has_natal_data: bool = False, user_id: int = 0, user_data_submitted: bool = False) -> InlineKeyboardMarkup:
     """Клавиатура приветствия для нового пользователя без данных"""
     buttons = [
+        [InlineKeyboardButton(
+            "🔮 Получать прогнозы",
+            callback_data="subscription:info"
+        )]
+    ]
+
+    # Кнопка "Заполнить данные" только если пользователь ещё не заполнил форму
+    if not user_data_submitted:
+        buttons.append([InlineKeyboardButton(
+            "📝 Заполнить данные ⚠️",
+            callback_data="data:start"
+        )])
+
+    buttons.extend([
         [InlineKeyboardButton(
             "👨‍💻 Связаться с астрологом",
             url=f"https://t.me/{ADMIN_USERNAME}"
@@ -24,8 +38,9 @@ def get_welcome_keyboard(has_natal_data: bool = False, user_id: int = 0) -> Inli
         [InlineKeyboardButton(
             "ℹ️ Как это работает?",
             callback_data="how_it_works"
-        )]
-    ]
+        )],
+        [InlineKeyboardButton("📄 Документы", callback_data="settings:privacy")]
+    ])
     # Кнопка админ-панели для админа
     if user_id == ADMIN_ID:
         buttons.append([InlineKeyboardButton(
@@ -36,15 +51,15 @@ def get_welcome_keyboard(has_natal_data: bool = False, user_id: int = 0) -> Inli
 
 
 def get_no_subscription_keyboard(user_id: int = 0) -> InlineKeyboardMarkup:
-    """Клавиатура для пользователя без подписки"""
+    """Клавиатура для пользователя без подписки (но с натальными данными)"""
     buttons = [
         [InlineKeyboardButton(
-            f"💳 Оформить подписку ({SUBSCRIPTION_PRICE} ₽/мес)",
-            callback_data="payment_new"
+            "🔮 Получать прогнозы",
+            callback_data="subscription:info"
         )],
-        # Настройки теперь только в Mini App
         [InlineKeyboardButton("ℹ️ Справка", callback_data="help"),
-         InlineKeyboardButton("👨‍💻 Поддержка", callback_data="support")]
+         InlineKeyboardButton("👨‍💻 Поддержка", callback_data="support")],
+        [InlineKeyboardButton("📄 Документы", callback_data="settings:privacy")]
     ]
     # Кнопка админ-панели для админа
     if user_id == ADMIN_ID:
@@ -63,8 +78,11 @@ def get_main_menu_keyboard(questions_left: int = 10, user_id: int = 0) -> Inline
             "🌟 ОТКРЫТЬ ПРОГНОЗЫ 🌟",
             web_app=WebAppInfo(url=f"{WEBAPP_URL}/webapp")
         )],
-        # Настройки теперь только в Mini App
-        [InlineKeyboardButton("👨‍💻 Поддержка", callback_data="support")]
+        # Поддержка и Документы
+        [
+            InlineKeyboardButton("👨‍💻 Поддержка", callback_data="support"),
+            InlineKeyboardButton("📄 Документы", callback_data="settings:privacy")
+        ]
     ]
 
     # Кнопка админ-панели для админа — открывает веб-админку
@@ -539,5 +557,26 @@ def get_add_user_confirm_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton("✏️ Редактировать", callback_data="adm_add_edit")
         ],
         [InlineKeyboardButton("❌ Отмена", callback_data="adm_main")]
+    ]
+    return InlineKeyboardMarkup(buttons)
+
+
+# ============== КЛАВИАТУРЫ СОГЛАСИЙ (152-ФЗ, 38-ФЗ) ==============
+
+def get_pd_consent_keyboard() -> InlineKeyboardMarkup:
+    """Клавиатура согласия на обработку ПД"""
+    buttons = [
+        [InlineKeyboardButton("✅ СОГЛАСЕН", callback_data="consent_pd_yes")]
+    ]
+    return InlineKeyboardMarkup(buttons)
+
+
+def get_marketing_consent_keyboard() -> InlineKeyboardMarkup:
+    """Клавиатура согласия на рассылку"""
+    buttons = [
+        [
+            InlineKeyboardButton("✅ Подписаться", callback_data="consent_marketing_yes"),
+            InlineKeyboardButton("❌ Не сейчас", callback_data="consent_marketing_no")
+        ]
     ]
     return InlineKeyboardMarkup(buttons)

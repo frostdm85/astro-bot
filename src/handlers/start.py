@@ -346,7 +346,10 @@ async def start_handler(client: Client, message: Message):
         # Нет натальных данных
         await message.reply(
             WELCOME_NO_DATA_TEXT,
-            reply_markup=get_welcome_keyboard(user_id=user.telegram_id)
+            reply_markup=get_welcome_keyboard(
+                user_id=user.telegram_id,
+                user_data_submitted=user.user_data_submitted
+            )
         )
     elif not user.has_active_subscription():
         # Нет подписки
