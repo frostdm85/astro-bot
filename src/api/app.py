@@ -821,6 +821,13 @@ async def get_calendar(
         if month is None:
             month = today.month
 
+        # Первый и последний день месяца (нужны для вычисления moon_phases)
+        first_day = date(year, month, 1)
+        if month == 12:
+            last_day = date(year + 1, 1, 1) - timedelta(days=1)
+        else:
+            last_day = date(year, month + 1, 1) - timedelta(days=1)
+
         # Получаем дату окончания подписки
         sub = user.get_subscription()
         subscription_end = None
@@ -845,23 +852,44 @@ async def get_calendar(
                     else:
                         day["locked"] = False
 
+                # Вычисляем лунные фазы (даже для кэша, так как они статичны)
+                from services.astro_engine import find_exact_new_moon, find_exact_full_moon
+                moon_phases = []
+
+                # Ищем новолуние
+                new_moon_dt = find_exact_new_moon(datetime.combine(first_day, datetime.min.time()))
+                if first_day <= new_moon_dt.date() <= last_day:
+                    moon_phases.append({"type": "new_moon", "date": new_moon_dt.strftime("%d.%m.%Y"), "time": new_moon_dt.strftime("%H:%M")})
+
+                # Ищем полнолуние
+                full_moon_dt = find_exact_full_moon(datetime.combine(first_day, datetime.min.time()))
+                if first_day <= full_moon_dt.date() <= last_day:
+                    moon_phases.append({"type": "full_moon", "date": full_moon_dt.strftime("%d.%m.%Y"), "time": full_moon_dt.strftime("%H:%M")})
+
+                # Второе новолуние (если первое до месяца)
+                if new_moon_dt.date() < first_day:
+                    new_moon_dt = find_exact_new_moon(new_moon_dt + timedelta(days=20))
+                    if first_day <= new_moon_dt.date() <= last_day:
+                        moon_phases.append({"type": "new_moon", "date": new_moon_dt.strftime("%d.%m.%Y"), "time": new_moon_dt.strftime("%H:%M")})
+
+                # Второе полнолуние (если первое до месяца)
+                if full_moon_dt.date() < first_day:
+                    full_moon_dt = find_exact_full_moon(full_moon_dt + timedelta(days=20))
+                    if first_day <= full_moon_dt.date() <= last_day:
+                        moon_phases.append({"type": "full_moon", "date": full_moon_dt.strftime("%d.%m.%Y"), "time": full_moon_dt.strftime("%H:%M")})
+
                 return {
                     "year": year,
                     "month": month,
                     "days": cached_days,
+                    "moon_phases": moon_phases,
                     "subscription_end": subscription_end.strftime("%d.%m.%Y") if subscription_end else None,
                     "from_cache": True
                 }
 
         logger.info(f"Calculating calendar for user {user_id}, {year}-{month}")
 
-        # Первый и последний день месяца
-        first_day = date(year, month, 1)
-        if month == 12:
-            last_day = date(year + 1, 1, 1) - timedelta(days=1)
-        else:
-            last_day = date(year, month + 1, 1) - timedelta(days=1)
-
+        # first_day и last_day уже вычислены выше
         days_count = (last_day - first_day).days + 1
 
         # Определяем до какого дня рассчитывать транзиты
@@ -967,6 +995,48 @@ async def get_calendar(
                     "locked": False
                 })
 
+        # Вычисляем новолуния и полнолуния в этом месяце
+        from services.astro_engine import find_exact_new_moon, find_exact_full_moon
+        moon_phases = []
+
+        # Ищем новолуние в начале месяца
+        new_moon_dt = find_exact_new_moon(datetime.combine(first_day, datetime.min.time()))
+        if first_day <= new_moon_dt.date() <= last_day:
+            moon_phases.append({
+                "type": "new_moon",
+                "date": new_moon_dt.strftime("%d.%m.%Y"),
+                "time": new_moon_dt.strftime("%H:%M")
+            })
+
+        # Ищем полнолуние в начале месяца
+        full_moon_dt = find_exact_full_moon(datetime.combine(first_day, datetime.min.time()))
+        if first_day <= full_moon_dt.date() <= last_day:
+            moon_phases.append({
+                "type": "full_moon",
+                "date": full_moon_dt.strftime("%d.%m.%Y"),
+                "time": full_moon_dt.strftime("%H:%M")
+            })
+
+        # Ищем следующее новолуние (если первое было до месяца)
+        if new_moon_dt.date() < first_day:
+            new_moon_dt = find_exact_new_moon(new_moon_dt + timedelta(days=20))
+            if first_day <= new_moon_dt.date() <= last_day:
+                moon_phases.append({
+                    "type": "new_moon",
+                    "date": new_moon_dt.strftime("%d.%m.%Y"),
+                    "time": new_moon_dt.strftime("%H:%M")
+                })
+
+        # Ищем следующее полнолуние (если первое было до месяца)
+        if full_moon_dt.date() < first_day:
+            full_moon_dt = find_exact_full_moon(full_moon_dt + timedelta(days=20))
+            if first_day <= full_moon_dt.date() <= last_day:
+                moon_phases.append({
+                    "type": "full_moon",
+                    "date": full_moon_dt.strftime("%d.%m.%Y"),
+                    "time": full_moon_dt.strftime("%H:%M")
+                })
+
         # Сохраняем в кэш БД (TTL 30 дней)
         CalendarCache.save_cache(user_id, year, month, calendar_days, ttl_days=30)
         logger.info(f"Calendar saved to cache for user {user_id}, {year}-{month}")
@@ -975,6 +1045,7 @@ async def get_calendar(
             "year": year,
             "month": month,
             "days": calendar_days,
+            "moon_phases": moon_phases,  # Добавляем лунные фазы
             "subscription_end": subscription_end.strftime("%d.%m.%Y") if subscription_end else None,
             "from_cache": False
         }
