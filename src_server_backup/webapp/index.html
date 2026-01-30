@@ -1,0 +1,1682 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Астро-прогноз</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="/webapp/css/style.css?v=28">
+</head>
+<body>
+    <!-- ============== ЭКРАН ЗАГРУЗКИ ============== -->
+    <div id="loading" class="screen active">
+        <div class="loader"></div>
+        <p id="loadingText">Загрузка...</p>
+    </div>
+
+    <!-- ============== ЭКРАН ОШИБКИ ============== -->
+    <div id="error" class="screen">
+        <div class="error-container">
+            <div class="error-emoji">⚠️</div>
+            <div class="error-title" id="errorTitle">Данные не найдены</div>
+            <div class="error-text" id="errorText">Обратитесь к администратору для настройки вашего профиля</div>
+            <div class="error-buttons" style="margin-top: 24px; display: flex; gap: 12px; flex-direction: column;">
+                <button class="menu-item" id="retryBtn" onclick="retryLastAction()" style="display: none; padding: 16px; font-size: 16px;" aria-label="Повторить последнее действие">
+                    🔄 Попробовать снова
+                </button>
+                <button class="menu-item" onclick="showScreen('menu')" style="padding: 16px; font-size: 16px;" aria-label="Вернуться в главное меню">
+                    🏠 В главное меню
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============== ГЛАВНОЕ МЕНЮ ============== -->
+    <div id="menu" class="screen">
+        <div class="menu-header">
+            <img src="/webapp/img/logo.svg" alt="Астрология" class="menu-logo">
+            <div class="menu-title">Ваш индивидуальный прогноз</div>
+            <div class="menu-subtitle" id="menuUserName"></div>
+        </div>
+
+        <!-- Мини-календарь на главной -->
+        <div class="menu-calendar-section">
+            <div class="calendar-hint">Выберите дату для просмотра прогноза</div>
+            <div class="menu-calendar-header">
+                <button id="menuCalPrev" class="mini-nav-btn" aria-label="Предыдущий месяц">←</button>
+                <div id="menuCalMonthYear" class="menu-month-year">Январь 2026</div>
+                <button id="menuCalNext" class="mini-nav-btn" aria-label="Следующий месяц">→</button>
+            </div>
+            <div class="menu-calendar-weekdays">
+                <span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span>
+            </div>
+            <div id="menuCalendarGrid" class="menu-calendar-grid">
+                <!-- Дни календаря -->
+            </div>
+            <div class="menu-calendar-legend">
+                <span class="legend-item"><span class="legend-dot good"></span>Хороший</span>
+                <span class="legend-item"><span class="legend-dot neutral"></span>Обычный</span>
+                <span class="legend-item"><span class="legend-dot difficult"></span>Сложный</span>
+            </div>
+        </div>
+
+        <div class="menu-grid compact">
+            <button class="menu-item primary" id="btnForecastToday">
+                <span class="menu-icon">✨</span>
+                <div class="menu-label-group">
+                    <span class="menu-label">Прогноз на сегодня</span>
+                    <span class="menu-desc">Подробный анализ дня</span>
+                </div>
+            </button>
+
+            <button class="menu-item" id="btnSettings">
+                <span class="menu-icon">⚙️</span>
+                <div class="menu-label-group">
+                    <span class="menu-label">Настройки</span>
+                    <span class="menu-desc">Время и уведомления</span>
+                </div>
+            </button>
+
+            <button class="menu-item" id="btnSupport">
+                <span class="menu-icon">💬</span>
+                <div class="menu-label-group">
+                    <span class="menu-label">Поддержка</span>
+                    <span class="menu-desc">Связь с астрологом</span>
+                </div>
+            </button>
+        </div>
+
+        <!-- Блок Натальной карты -->
+        <div class="natal-widget">
+            <div class="natal-widget-header">
+                <span class="natal-widget-icon">🌌</span>
+                <span class="natal-widget-title">Натальная карта</span>
+            </div>
+            <div class="natal-widget-content">
+                <div id="menuChartPaper" class="menu-chart-paper"></div>
+            </div>
+        </div>
+
+        <!-- Блок Луны -->
+        <div class="moon-widget">
+            <div class="moon-widget-header">
+                <span class="moon-widget-icon">🌙</span>
+                <span class="moon-widget-title">Лунный календарь</span>
+            </div>
+            <div class="moon-widget-content">
+                <div class="moon-visual">
+                    <div class="moon-sphere" id="moonSphere">
+                        <div class="moon-shadow" id="moonShadow"></div>
+                    </div>
+                    <div class="moon-glow"></div>
+                </div>
+                <div class="moon-info">
+                    <div class="moon-phase-name" id="moonPhaseName">Загрузка...</div>
+                    <div class="moon-details">
+                        <span class="moon-day" id="moonDay">—</span>
+                        <span class="moon-sign" id="moonSign">—</span>
+                    </div>
+                    <div class="moon-illumination">
+                        <div class="illumination-bar">
+                            <div class="illumination-fill" id="moonIllumination"></div>
+                        </div>
+                        <span class="illumination-text" id="moonIlluminationText">0%</span>
+                    </div>
+                </div>
+            </div>
+            <div class="moon-events">
+                <div class="moon-event">
+                    <span class="event-emoji">🌑</span>
+                    <div class="event-info">
+                        <span class="event-name">Новолуние</span>
+                        <span class="event-date" id="nextNewMoon">—</span>
+                    </div>
+                </div>
+                <div class="moon-event">
+                    <span class="event-emoji">🌕</span>
+                    <div class="event-info">
+                        <span class="event-name">Полнолуние</span>
+                        <span class="event-date" id="nextFullMoon">—</span>
+                    </div>
+                </div>
+                <div class="moon-event eclipse-event" id="eclipseEvent1" style="display: none;">
+                    <span class="event-emoji" id="eclipseEmoji1">🌕</span>
+                    <div class="event-info">
+                        <span class="event-name" id="eclipseType1">Затмение</span>
+                        <span class="event-date" id="eclipseDate1">—</span>
+                    </div>
+                </div>
+                <div class="moon-event eclipse-event" id="eclipseEvent2" style="display: none;">
+                    <span class="event-emoji" id="eclipseEmoji2">🌕</span>
+                    <div class="event-info">
+                        <span class="event-name" id="eclipseType2">Затмение</span>
+                        <span class="event-date" id="eclipseDate2">—</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Блок Ретроградов -->
+        <div class="retrograde-widget">
+            <div class="retrograde-header">
+                <span class="retrograde-icon">🔄</span>
+                <span class="retrograde-title">Ретроградные планеты</span>
+                <span class="retrograde-year" id="retrogradeYear">2026</span>
+            </div>
+
+            <!-- Текущий статус -->
+            <div class="retrograde-status" id="retrogradeStatus">
+                <span class="status-label">Сейчас в ретрограде:</span>
+                <span class="status-value" id="currentRetrogrades">—</span>
+            </div>
+
+            <!-- Список планет с периодами -->
+            <div class="retrograde-list" id="retrogradeList">
+                <!-- Заполняется через JS -->
+            </div>
+        </div>
+
+        <!-- Данные для расчёта -->
+        <div class="user-info-card">
+            <div class="user-info-header">
+                <span class="user-info-icon">📋</span>
+                <span class="user-info-title">Ваши данные</span>
+            </div>
+            <div class="user-info-grid">
+                <div class="user-info-item">
+                    <span class="info-label">Дата рождения</span>
+                    <span class="info-value" id="menuBirthDate">—</span>
+                </div>
+                <div class="user-info-item">
+                    <span class="info-label">Время</span>
+                    <span class="info-value" id="menuBirthTime">—</span>
+                </div>
+                <div class="user-info-item">
+                    <span class="info-label">Место рождения</span>
+                    <span class="info-value" id="menuBirthPlace">—</span>
+                </div>
+                <div class="user-info-item">
+                    <span class="info-label">Проживание</span>
+                    <span class="info-value" id="menuResidence">—</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============== ЭКРАН ПРОГНОЗА ============== -->
+    <div id="forecast" class="screen">
+        <div class="screen-header">
+            <button class="back-btn" id="forecastBack" aria-label="Назад в меню">←</button>
+            <div class="header-title">Прогноз</div>
+            <div class="header-spacer"></div>
+        </div>
+
+        <!-- Навигация по дням -->
+        <div class="date-header">
+            <button id="prevDay" class="nav-btn ripple" aria-label="Предыдущий день">←</button>
+            <div class="date-info">
+                <div id="dayName" class="day-name">Понедельник</div>
+                <div id="dateText" class="date-text">12 января 2026</div>
+            </div>
+            <button id="nextDay" class="nav-btn ripple" aria-label="Следующий день">→</button>
+        </div>
+
+        <!-- Карточка настроения дня -->
+        <div id="moodCard" class="mood-card neutral">
+            <div id="moodEmoji" class="mood-emoji">😊</div>
+            <div id="moodTitle" class="mood-title">Обычный день</div>
+            <div id="moodSubtitle" class="mood-subtitle">Нет особых указаний</div>
+        </div>
+
+        <!-- Текст прогноза -->
+        <div class="forecast-section">
+            <div class="section-header">
+                <span class="section-icon">✨</span>
+                <span class="section-title">Прогноз на день</span>
+            </div>
+            <div id="forecastText" class="forecast-text">
+                Загрузка прогноза...
+            </div>
+        </div>
+
+        <!-- Вопросы по прогнозу -->
+        <div class="question-section">
+            <div class="section-header">
+                <span class="section-icon">💬</span>
+                <span class="section-title">Задать вопрос</span>
+            </div>
+            <div class="question-container">
+                <div id="questionHistory" class="question-history"></div>
+                <div class="question-input-wrapper">
+                    <input type="text" id="questionInput" class="question-input" placeholder="Спросите о прогнозе на этот день..." aria-label="Введите вопрос">
+                    <button id="sendQuestion" class="send-btn ripple" aria-label="Отправить вопрос">
+                        <span class="send-icon">→</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Транзиты -->
+        <div id="transitsSection" class="timeline-section">
+            <div class="section-header">
+                <span class="section-icon">🌟</span>
+                <span class="section-title">Активные влияния</span>
+            </div>
+            <div id="transitsList" class="timeline">
+                <!-- Транзиты -->
+            </div>
+        </div>
+    </div>
+
+    <!-- ============== ЭКРАН КАЛЕНДАРЯ ============== -->
+    <div id="calendar" class="screen">
+        <div class="screen-header">
+            <button class="back-btn" id="calendarBack" aria-label="Назад в меню">←</button>
+            <div class="header-title">Календарь</div>
+            <div class="header-spacer"></div>
+        </div>
+
+        <div class="calendar-nav">
+            <button id="calPrev" class="nav-btn" aria-label="Предыдущий месяц">←</button>
+            <div id="calMonthYear" class="month-year">Январь 2026</div>
+            <button id="calNext" class="nav-btn" aria-label="Следующий месяц">→</button>
+        </div>
+
+        <div class="calendar-weekdays">
+            <span>Пн</span>
+            <span>Вт</span>
+            <span>Ср</span>
+            <span>Чт</span>
+            <span>Пт</span>
+            <span>Сб</span>
+            <span>Вс</span>
+        </div>
+
+        <div id="calendarGrid" class="calendar-grid">
+            <!-- Дни -->
+        </div>
+
+        <div class="legend">
+            <div class="legend-item">
+                <span class="legend-dot good"></span>
+                <span>Хорошо</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-dot neutral"></span>
+                <span>Обычно</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-dot difficult"></span>
+                <span>Сложно</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============== ЭКРАН НАСТРОЕК ============== -->
+    <div id="settings" class="screen">
+        <div class="screen-header">
+            <button class="back-btn" id="settingsBack" aria-label="Назад в меню">←</button>
+            <div class="header-title">Настройки</div>
+            <div class="header-spacer"></div>
+        </div>
+
+        <div class="settings-section">
+            <div class="settings-section-title">Утренний прогноз</div>
+            <div class="settings-section-desc">Каждый день в выбранное время вам придёт краткий прогноз на день</div>
+            <div class="settings-item toggle-item">
+                <div class="settings-label">Получать прогноз</div>
+                <label class="toggle">
+                    <input type="checkbox" id="forecastToggle" checked>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="settings-item">
+                <div class="settings-label">Время отправки</div>
+                <div class="settings-value" id="forecastTimeValue">09:00</div>
+            </div>
+            <div class="time-picker" id="timePicker">
+                <button class="time-btn" data-time="06:00">06:00</button>
+                <button class="time-btn" data-time="07:00">07:00</button>
+                <button class="time-btn" data-time="08:00">08:00</button>
+                <button class="time-btn selected" data-time="09:00">09:00</button>
+                <button class="time-btn" data-time="10:00">10:00</button>
+                <button class="time-btn" data-time="11:00">11:00</button>
+                <button class="time-btn" data-time="12:00">12:00</button>
+                <button class="time-btn" data-time="20:00">20:00</button>
+            </div>
+        </div>
+
+        <div class="settings-section">
+            <div class="settings-section-title">Важные транзиты</div>
+            <div class="settings-section-desc">Уведомления о значимых астрологических событиях на ближайшие дни (планеты кроме Луны и Солнца)</div>
+            <div class="settings-item toggle-item">
+                <div class="settings-label">Получать уведомления</div>
+                <label class="toggle">
+                    <input type="checkbox" id="notificationsToggle">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============== ЭКРАН ПОДДЕРЖКИ ============== -->
+    <div id="support" class="screen">
+        <div class="screen-header">
+            <button class="back-btn" id="supportBack" aria-label="Назад в меню">←</button>
+            <div class="header-title">Поддержка</div>
+            <div class="header-spacer"></div>
+        </div>
+
+        <div class="support-content">
+            <div class="support-card">
+                <div class="support-icon">👨‍💻</div>
+                <div class="support-title">Связаться с астрологом</div>
+                <div class="support-text">Задайте вопрос по прогнозу или получите консультацию</div>
+                <button class="support-btn" id="btnContactAstro">Написать</button>
+            </div>
+
+            <div class="support-card">
+                <div class="support-icon">❓</div>
+                <div class="support-title">Как это работает?</div>
+                <div class="support-text">
+                    Прогнозы строятся на основе транзитов планет к вашей натальной карте.
+                    Анализируются аспекты между транзитными и натальными планетами, что даёт конкретные рекомендации.
+                </div>
+            </div>
+
+            <div class="support-card">
+                <div class="support-icon">📖</div>
+                <div class="support-title">О прогнозах</div>
+                <div class="support-text">
+                    Каждый день анализируются активные транзиты планет. Позитивные аспекты (тригон, секстиль) — благоприятны, напряжённые (квадратура, оппозиция) — требуют осторожности.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============== ЭКРАН НАТАЛЬНОЙ КАРТЫ ============== -->
+    <div id="natalChart" class="screen">
+        <div class="screen-header">
+            <button class="back-btn" id="natalChartBack" aria-label="Назад в меню">←</button>
+            <div class="header-title">Натальная карта</div>
+            <div class="header-spacer"></div>
+        </div>
+
+        <div class="natal-chart-container">
+            <div class="chart-user-info" id="chartUserInfo">
+                <!-- Информация о пользователе -->
+            </div>
+            <div id="chartPaper" class="chart-paper">
+                <div class="chart-loading">
+                    <div class="loader-small"></div>
+                    <span>Строю карту...</span>
+                </div>
+            </div>
+            <div class="chart-legend" id="chartLegend">
+                <!-- Легенда планет -->
+            </div>
+        </div>
+    </div>
+
+    <script src="/webapp/js/astrochart2.js"></script>
+    <script>
+    /**
+     * АСТРО-БОТ MINI APP
+     * Полноценный пользовательский интерфейс
+     */
+
+    // ============== ИНИЦИАЛИЗАЦИЯ ==============
+
+    const tg = window.Telegram?.WebApp;
+
+    // Получаем user_id
+    let userId = null;
+    let userData = null;
+
+    if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
+        userId = tg.initDataUnsafe.user.id;
+        userData = tg.initDataUnsafe.user;
+    }
+
+    // Для тестирования
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('user_id')) {
+        userId = parseInt(urlParams.get('user_id'));
+    }
+
+    // Текущие даты
+    let currentDate = new Date();
+    let currentCalendarMonth = new Date();
+    const calendarCache = new Map(); // Кэш данных календаря по месяцам
+
+    // Константы
+    const planetSymbols = {
+        'Солнце': '☉', 'Луна': '☽', 'Меркурий': '☿', 'Венера': '♀',
+        'Марс': '♂', 'Юпитер': '♃', 'Сатурн': '♄', 'Уран': '♅',
+        'Нептун': '♆', 'Плутон': '♇', 'Лилит': '⚸', 'Северный узел': '☊'
+    };
+
+    const moodEmoji = { good: '😊', neutral: '😌', difficult: '🌊' };
+    const moodTitle = { good: 'Хороший день', neutral: 'Обычный день', difficult: 'Непростой день' };
+    const moodSubtitle = {
+        good: 'Благоприятные влияния',
+        neutral: 'Нет особых указаний',
+        difficult: 'Требует внимательности'
+    };
+
+    const monthNames = [
+        'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+        'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
+    ];
+
+    // ============== ЗАПУСК ==============
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        console.log('🚀 Mini App запущен');
+        console.log('👤 User ID:', userId);
+
+        if (tg) {
+            tg.ready();
+            tg.expand();
+            tg.enableClosingConfirmation();
+
+            // Тема Telegram
+            if (tg.colorScheme === 'light') {
+                document.body.classList.add('tg-light');
+            }
+            tg.onEvent('themeChanged', () => {
+                document.body.classList.toggle('tg-light', tg.colorScheme === 'light');
+            });
+        }
+
+        if (!userId) {
+            showError('Откройте приложение через Telegram');
+            return;
+        }
+
+        // Проверяем есть ли пользователь и получаем имя из БД
+        let userName = '';
+        try {
+            const response = await fetch(`/api/user/${userId}/check`);
+            if (response.status === 404) {
+                showError('Ваш профиль не найден. Обратитесь к администратору.');
+                return;
+            }
+            if (response.status === 400) {
+                showError('Натальные данные не заполнены. Обратитесь к администратору.');
+                return;
+            }
+            if (response.ok) {
+                const data = await response.json();
+                userName = data.name || '';
+            }
+        } catch (e) {
+            // Игнорируем ошибку проверки, покажем меню
+        }
+
+        // Настраиваем навигацию
+        setupNavigation();
+
+        // Показываем имя: из БД > из Telegram > пусто
+        const displayName = userName || (userData?.first_name) || '';
+        if (displayName) {
+            document.getElementById('menuUserName').textContent = displayName;
+        }
+
+        // Проверяем hash для автоматического перехода к экрану
+        const hash = window.location.hash;
+        if (hash === '#settings') {
+            loadSettings();
+            showScreen('settings');
+        } else {
+            showScreen('menu');
+            // Загружаем данные пользователя для блока "Ваши данные" на главном меню
+            loadSettings();
+            // Загружаем натальную карту на главной
+            loadMenuNatalChart();
+            // Загружаем информацию о Луне
+            loadMoonInfo();
+            // Загружаем информацию о ретроградах
+            loadRetrogrades();
+        }
+
+        // Загружаем мини-календарь на главной
+        currentCalendarMonth = new Date();
+        loadMenuCalendar();
+    });
+
+    // ============== НАВИГАЦИЯ ==============
+
+    function setupNavigation() {
+        // Главное меню
+        document.getElementById('btnForecastToday').onclick = () => {
+            currentDate = new Date();
+            loadForecast(currentDate);
+            haptic('medium');
+        };
+
+        document.getElementById('btnSettings').onclick = () => {
+            loadSettings();
+            showScreen('settings');
+            haptic('light');
+        };
+
+        document.getElementById('btnSupport').onclick = () => {
+            showScreen('support');
+            haptic('light');
+        };
+
+        // Клик по виджету натальной карты открывает полный экран
+        document.querySelector('.natal-widget')?.addEventListener('click', () => {
+            showScreen('natalChart');
+            loadNatalChart();
+            haptic('light');
+        });
+
+        // Мини-календарь на главной
+        document.getElementById('menuCalPrev').onclick = async () => {
+            currentCalendarMonth.setMonth(currentCalendarMonth.getMonth() - 1);
+            await loadMenuCalendar();
+            haptic('light');
+        };
+
+        document.getElementById('menuCalNext').onclick = async () => {
+            currentCalendarMonth.setMonth(currentCalendarMonth.getMonth() + 1);
+            await loadMenuCalendar();
+            haptic('light');
+        };
+
+        // Кнопки назад
+        document.getElementById('forecastBack').onclick = () => {
+            showScreen('menu');
+            haptic('light');
+        };
+
+        document.getElementById('calendarBack').onclick = () => {
+            showScreen('menu');
+            haptic('light');
+        };
+
+        document.getElementById('settingsBack').onclick = () => {
+            showScreen('menu');
+            haptic('light');
+        };
+
+        document.getElementById('supportBack').onclick = () => {
+            showScreen('menu');
+            haptic('light');
+        };
+
+        document.getElementById('natalChartBack').onclick = () => {
+            showScreen('menu');
+            haptic('light');
+        };
+
+        // Навигация по дням в прогнозе
+        document.getElementById('prevDay').onclick = async () => {
+            currentDate.setDate(currentDate.getDate() - 1);
+            await loadForecast(currentDate);
+            haptic('light');
+        };
+
+        document.getElementById('nextDay').onclick = async () => {
+            currentDate.setDate(currentDate.getDate() + 1);
+            await loadForecast(currentDate);
+            haptic('light');
+        };
+
+        // Навигация по месяцам в календаре
+        document.getElementById('calPrev').onclick = async () => {
+            currentCalendarMonth.setMonth(currentCalendarMonth.getMonth() - 1);
+            await loadCalendar();
+            haptic('light');
+        };
+
+        document.getElementById('calNext').onclick = async () => {
+            currentCalendarMonth.setMonth(currentCalendarMonth.getMonth() + 1);
+            await loadCalendar();
+            haptic('light');
+        };
+
+        // Выбор времени
+        document.querySelectorAll('.time-btn').forEach(btn => {
+            btn.onclick = () => {
+                document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                document.getElementById('forecastTimeValue').textContent = btn.dataset.time;
+                saveForecastTime(btn.dataset.time);
+                haptic('light');
+            };
+        });
+
+        // Утренний прогноз вкл/выкл
+        document.getElementById('forecastToggle').onchange = (e) => {
+            saveForecastEnabled(e.target.checked);
+            haptic('light');
+        };
+
+        // Важные транзиты вкл/выкл
+        document.getElementById('notificationsToggle').onchange = (e) => {
+            saveNotificationsSetting(e.target.checked);
+            haptic('light');
+        };
+
+        // Связь с астрологом
+        document.getElementById('btnContactAstro').onclick = () => {
+            const link = 'https://t.me/dmitrystarkov77';
+            if (tg && tg.openTelegramLink) {
+                tg.openTelegramLink(link);
+            } else {
+                window.open(link, '_blank');
+            }
+            haptic('medium');
+        };
+
+        // Вопросы по прогнозу
+        document.getElementById('sendQuestion').onclick = () => sendForecastQuestion();
+        document.getElementById('questionInput').onkeypress = (e) => {
+            if (e.key === 'Enter') {
+                sendForecastQuestion();
+            }
+        };
+    }
+
+    // ============== ВОПРОСЫ ПО ПРОГНОЗУ ==============
+
+    let currentForecastSummary = ''; // Сохраняем текущий прогноз для контекста
+
+    async function sendForecastQuestion() {
+        const input = document.getElementById('questionInput');
+        const question = input.value.trim();
+        if (!question) return;
+
+        const historyEl = document.getElementById('questionHistory');
+        const sendBtn = document.getElementById('sendQuestion');
+
+        // Добавляем вопрос пользователя
+        const userMsg = document.createElement('div');
+        userMsg.className = 'question-item user';
+        userMsg.textContent = question;
+        historyEl.appendChild(userMsg);
+
+        // Добавляем индикатор загрузки
+        const loadingMsg = document.createElement('div');
+        loadingMsg.className = 'question-item assistant loading';
+        loadingMsg.textContent = 'Думаю...';
+        historyEl.appendChild(loadingMsg);
+
+        // Очищаем ввод и блокируем кнопку
+        input.value = '';
+        sendBtn.disabled = true;
+
+        // Прокручиваем к последнему сообщению
+        historyEl.scrollTop = historyEl.scrollHeight;
+
+        haptic('light');
+
+        try {
+            const dateStr = currentDate.toLocaleDateString('ru-RU'); // dd.mm.yyyy
+            const response = await fetch(`/api/forecast/${userId}/question`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    question: question,
+                    date_str: dateStr,
+                    forecast_context: currentForecastSummary
+                })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || 'Ошибка сервера');
+            }
+
+            const data = await response.json();
+
+            // Заменяем индикатор на ответ
+            loadingMsg.className = 'question-item assistant';
+            loadingMsg.textContent = data.answer;
+
+            haptic('success');
+
+        } catch (e) {
+            console.error('Ошибка при отправке вопроса:', e);
+            loadingMsg.className = 'question-item assistant';
+            loadingMsg.textContent = 'Не удалось получить ответ. Попробуйте позже.';
+            haptic('error');
+        } finally {
+            sendBtn.disabled = false;
+            historyEl.scrollTop = historyEl.scrollHeight;
+        }
+    }
+
+    function clearQuestionHistory() {
+        const historyEl = document.getElementById('questionHistory');
+        historyEl.innerHTML = '';
+    }
+
+    // ============== ЗАГРУЗКА ДАННЫХ ==============
+
+    async function loadForecast(date) {
+        showLoading('Загружаю прогноз...');
+
+        // Сохраняем для retry
+        lastAction = () => loadForecast(date);
+
+        const dateStr = formatDateForApi(date);
+
+        try {
+            const response = await fetch(`/api/forecast/${userId}/date/${dateStr}`);
+
+            if (response.status === 404) {
+                showError('Данные не найдены', 'Профиль не настроен', false);
+                return;
+            }
+
+            if (response.status === 400) {
+                showError('Для прогноза нужны ваши данные рождения', 'Натальные данные', false);
+                return;
+            }
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+            renderForecast(data);
+            showScreen('forecast');
+            lastAction = null; // Успех - очищаем
+
+        } catch (e) {
+            console.error('Ошибка:', e);
+            showError('Не удалось загрузить прогноз. Проверьте интернет-соединение.', 'Ошибка сети', true);
+        }
+    }
+
+    async function loadCalendar() {
+        const year = currentCalendarMonth.getFullYear();
+        const month = currentCalendarMonth.getMonth() + 1;
+        const cacheKey = `${year}-${month}`;
+
+        document.getElementById('calMonthYear').textContent = `${monthNames[month - 1]} ${year}`;
+
+        // Проверяем локальный кэш в памяти
+        if (calendarCache.has(cacheKey)) {
+            const cachedData = calendarCache.get(cacheKey);
+            renderCalendar(cachedData.days, year, month);
+            return;
+        }
+
+        // Показываем индикатор загрузки
+        showCalendarLoading(true);
+
+        try {
+            const response = await fetch(`/api/forecast/${userId}/calendar?year=${year}&month=${month}`);
+
+            if (!response.ok) {
+                renderCalendarWithoutData(year, month);
+                return;
+            }
+
+            const data = await response.json();
+
+            // Сохраняем в локальный кэш
+            calendarCache.set(cacheKey, data);
+
+            renderCalendar(data.days, year, month);
+
+            // Если это из серверного кэша — мгновенно, если расчёт — показываем уведомление
+            if (!data.from_cache) {
+                console.log('Календарь рассчитан и сохранён в БД');
+            }
+
+        } catch (e) {
+            console.error('Ошибка календаря:', e);
+            renderCalendarWithoutData(year, month);
+        } finally {
+            showCalendarLoading(false);
+        }
+    }
+
+    function showCalendarLoading(show) {
+        const grid = document.getElementById('calendarGrid');
+        if (show) {
+            grid.innerHTML = '<div class="calendar-loading"><div class="loader-small"></div><span>Рассчитываю календарь...</span></div>';
+        }
+    }
+
+    // ============== БЛОК ЛУНЫ ==============
+
+    async function loadMoonInfo() {
+        try {
+            const response = await fetch('/api/moon');
+            if (!response.ok) return;
+
+            const data = await response.json();
+
+            // Название фазы
+            document.getElementById('moonPhaseName').textContent = data.phase_name;
+
+            // Лунный день и знак
+            document.getElementById('moonDay').textContent = `${data.lunar_day} лунный день`;
+            document.getElementById('moonSign').textContent = `${data.moon_sign_symbol} ${data.moon_sign}`;
+
+            // Освещённость
+            const illumination = data.illumination || 0;
+            document.getElementById('moonIllumination').style.width = `${illumination}%`;
+            document.getElementById('moonIlluminationText').textContent = `${Math.round(illumination)}%`;
+
+            // Визуализация фазы
+            updateMoonVisual(data.phase_index, data.is_waxing);
+
+            // Даты событий
+            document.getElementById('nextNewMoon').textContent = data.next_new_moon;
+            document.getElementById('nextFullMoon').textContent = data.next_full_moon;
+
+            // Затмения (показываем до 2-х)
+            if (data.eclipses && data.eclipses.length > 0) {
+                // Первое затмение
+                const eclipse1 = data.eclipses[0];
+                document.getElementById('eclipseEvent1').style.display = 'flex';
+                document.getElementById('eclipseEmoji1').textContent = eclipse1.emoji;
+                document.getElementById('eclipseType1').textContent = eclipse1.type;
+                document.getElementById('eclipseDate1').textContent = eclipse1.date;
+
+                // Второе затмение (если есть)
+                if (data.eclipses.length > 1) {
+                    const eclipse2 = data.eclipses[1];
+                    document.getElementById('eclipseEvent2').style.display = 'flex';
+                    document.getElementById('eclipseEmoji2').textContent = eclipse2.emoji;
+                    document.getElementById('eclipseType2').textContent = eclipse2.type;
+                    document.getElementById('eclipseDate2').textContent = eclipse2.date;
+                }
+            }
+        } catch (e) {
+            console.error('Ошибка загрузки данных о Луне:', e);
+        }
+    }
+
+    function updateMoonVisual(phaseIndex, isWaxing) {
+        const moonSphere = document.getElementById('moonSphere');
+        // Убираем все классы фаз
+        moonSphere.className = 'moon-sphere';
+
+        // Добавляем нужный класс
+        const phaseClasses = [
+            'new-moon',          // 0
+            'waxing-crescent',   // 1
+            'first-quarter',     // 2
+            'waxing-gibbous',    // 3
+            'full-moon',         // 4
+            'waning-gibbous',    // 5
+            'last-quarter',      // 6
+            'waning-crescent'    // 7
+        ];
+
+        if (phaseIndex >= 0 && phaseIndex < phaseClasses.length) {
+            moonSphere.classList.add(phaseClasses[phaseIndex]);
+        }
+    }
+
+    // ============== РЕТРОГРАДЫ ==============
+
+    async function loadRetrogrades() {
+        try {
+            const response = await fetch('/api/retrogrades');
+            if (!response.ok) return;
+
+            const data = await response.json();
+
+            // Год
+            document.getElementById('retrogradeYear').textContent = data.year;
+
+            // Текущий статус
+            const current = data.current;
+            if (current.retrograde_count > 0) {
+                const names = current.current_retrogrades.map(p => `${p.symbol} ${p.name}`).join(', ');
+                document.getElementById('currentRetrogrades').textContent = names;
+                document.getElementById('currentRetrogrades').classList.add('active');
+            } else {
+                document.getElementById('currentRetrogrades').textContent = 'Нет';
+                document.getElementById('currentRetrogrades').classList.remove('active');
+            }
+
+            // Список планет с периодами
+            const listEl = document.getElementById('retrogradeList');
+            listEl.innerHTML = '';
+
+            for (const planet of data.periods) {
+                const planetEl = document.createElement('div');
+                planetEl.className = 'retrograde-planet';
+
+                // Проверяем, в ретрограде ли сейчас
+                const isCurrentlyRetro = current.current_retrogrades.some(p => p.name === planet.name);
+
+                planetEl.innerHTML = `
+                    <div class="planet-header ${isCurrentlyRetro ? 'active' : ''}">
+                        <span class="planet-symbol" style="color: ${planet.color}">${planet.symbol}</span>
+                        <span class="planet-name">${planet.name}</span>
+                        ${isCurrentlyRetro ? '<span class="retro-badge">℞</span>' : ''}
+                    </div>
+                    <div class="planet-periods">
+                        ${planet.periods.length > 0
+                            ? planet.periods.map(p => `
+                                <div class="period-item">
+                                    <span class="period-dates">${p.start} — ${p.end}</span>
+                                </div>
+                            `).join('')
+                            : '<span class="no-periods">Нет ретроградов в этом году</span>'
+                        }
+                    </div>
+                `;
+
+                listEl.appendChild(planetEl);
+            }
+        } catch (e) {
+            console.error('Ошибка загрузки ретроградов:', e);
+        }
+    }
+
+    // ============== НАТАЛЬНАЯ КАРТА (ВИДЖЕТ НА МЕНЮ) ==============
+
+    let menuChartInstance = null;
+
+    async function loadMenuNatalChart() {
+        const chartPaper = document.getElementById('menuChartPaper');
+        if (!chartPaper) return;
+
+        chartPaper.innerHTML = '<div class="chart-loading"><div class="loader-small"></div><span>Строю карту...</span></div>';
+
+        try {
+            const response = await fetch(`/api/natal-chart/${userId}`);
+            if (!response.ok) {
+                chartPaper.innerHTML = '<div class="chart-error">Не удалось загрузить карту</div>';
+                return;
+            }
+
+            const data = await response.json();
+            chartPaper.innerHTML = '';
+
+            // Настройки карты для виджета
+            const settings = {
+                CHART_PADDING: 5,
+                CHART_VIEWBOX_WIDTH: 320,
+                CHART_VIEWBOX_HEIGHT: 320,
+                RADIX_POINTS_FONT_SIZE: 12,
+                RADIX_SIGNS_FONT_SIZE: 10,
+                RADIX_AXIS_FONT_SIZE: 8,
+                COLOR_BACKGROUND: '#ffffff',
+                COLOR_SIGNS_BACKGROUND: 'rgba(139, 92, 246, 0.15)',
+                COLOR_POINTS_BACKGROUND: 'rgba(245, 245, 250, 0.95)',
+                COLOR_HOUSE_LINES: 'rgba(100, 100, 120, 0.3)',
+                COLOR_AXIS_LINE: 'rgba(139, 92, 246, 0.7)',
+                COLOR_SIGNS_LINE: 'rgba(100, 100, 120, 0.4)',
+                COLOR_SIGNS_SYMBOL: '#333333',
+                COLOR_POINTS_SYMBOL: '#1a1a2e',
+                COLOR_RETROGRADE_SYMBOL: '#dc2626',
+                DRAW_ASPECTS: true,
+                COLOR_ASPECT_CONJUNCTION: '#8b5cf6',
+                COLOR_ASPECT_SEXTILE: '#22c55e',
+                COLOR_ASPECT_SQUARE: '#ef4444',
+                COLOR_ASPECT_TRINE: '#3b82f6',
+                COLOR_ASPECT_OPPOSITION: '#ef4444',
+            };
+
+            const universe = new astrology.Universe('menuChartPaper', settings);
+            menuChartInstance = universe.radix();
+            menuChartInstance.setData(data);
+
+            // Рисуем аспекты
+            const aspectsConfig = [
+                {name: "Conjunction", angle: 0, orb: 8.5},
+                {name: "Sextile", angle: 60, orb: 8.5},
+                {name: "Square", angle: 90, orb: 8.5},
+                {name: "Trine", angle: 120, orb: 8.5},
+                {name: "Opposition", angle: 180, orb: 8.5},
+            ];
+            menuChartInstance.drawAspects(data.points, data.points, aspectsConfig);
+
+        } catch (e) {
+            console.error('Ошибка загрузки натальной карты:', e);
+            chartPaper.innerHTML = '<div class="chart-error">Ошибка загрузки</div>';
+        }
+    }
+
+    // ============== НАТАЛЬНАЯ КАРТА (ЭКРАН) ==============
+
+    let natalChartInstance = null;
+
+    async function loadNatalChart() {
+        const chartPaper = document.getElementById('chartPaper');
+        const chartUserInfo = document.getElementById('chartUserInfo');
+        const chartLegend = document.getElementById('chartLegend');
+
+        // Показываем загрузку
+        chartPaper.innerHTML = '<div class="chart-loading"><div class="loader-small"></div><span>Строю карту...</span></div>';
+        chartUserInfo.innerHTML = '';
+        chartLegend.innerHTML = '';
+
+        try {
+            const response = await fetch(`/api/natal-chart/${userId}`);
+            if (!response.ok) {
+                throw new Error('Не удалось загрузить данные карты');
+            }
+
+            const data = await response.json();
+
+            // Показываем информацию о пользователе
+            chartUserInfo.innerHTML = `
+                <div class="chart-user-name">${data.user.name}</div>
+                <div class="chart-user-details">
+                    ${data.user.birth_date} ${data.user.birth_time || ''}<br>
+                    ${data.user.birth_place || ''}
+                </div>
+            `;
+
+            // Очищаем контейнер для карты
+            chartPaper.innerHTML = '';
+
+            // Настройки карты (белый фон, система Кох)
+            const settings = {
+                CHART_PADDING: 10,
+                CHART_VIEWBOX_WIDTH: 400,
+                CHART_VIEWBOX_HEIGHT: 400,
+                RADIX_POINTS_FONT_SIZE: 14,
+                RADIX_SIGNS_FONT_SIZE: 12,
+                RADIX_AXIS_FONT_SIZE: 10,
+                COLOR_BACKGROUND: '#ffffff',
+                COLOR_SIGNS_BACKGROUND: 'rgba(139, 92, 246, 0.15)',
+                COLOR_POINTS_BACKGROUND: 'rgba(245, 245, 250, 0.95)',
+                COLOR_HOUSE_LINES: 'rgba(100, 100, 120, 0.3)',
+                COLOR_AXIS_LINE: 'rgba(139, 92, 246, 0.7)',
+                COLOR_SIGNS_LINE: 'rgba(100, 100, 120, 0.4)',
+                COLOR_SIGNS_SYMBOL: '#333333',
+                COLOR_POINTS_SYMBOL: '#1a1a2e',
+                COLOR_RETROGRADE_SYMBOL: '#dc2626',
+                // Аспекты
+                DRAW_ASPECTS: true,
+                DEFAULT_ASPECTS: [
+                    {name: "Conjunction", angle: 0, orb: 8.5},
+                    {name: "Sextile", angle: 60, orb: 8.5},
+                    {name: "Square", angle: 90, orb: 8.5},
+                    {name: "Trine", angle: 120, orb: 8.5},
+                    {name: "Opposition", angle: 180, orb: 8.5},
+                ],
+                COLOR_ASPECT_CONJUNCTION: '#8b5cf6',  // Соединение - фиолетовый
+                COLOR_ASPECT_SEXTILE: '#22c55e',      // Секстиль - зелёный
+                COLOR_ASPECT_SQUARE: '#ef4444',       // Квадратура - красный
+                COLOR_ASPECT_TRINE: '#3b82f6',        // Тригон - синий
+                COLOR_ASPECT_OPPOSITION: '#ef4444',   // Оппозиция - красный
+            };
+
+            // Создаём карту
+            const universe = new astrology.Universe('chartPaper', settings);
+            natalChartInstance = universe.radix();
+            natalChartInstance.setData(data);
+
+            // Рисуем аспекты вручную с нашими орбисами
+            const aspectsConfig = [
+                {name: "Conjunction", angle: 0, orb: 8.5},
+                {name: "Sextile", angle: 60, orb: 8.5},
+                {name: "Square", angle: 90, orb: 8.5},
+                {name: "Trine", angle: 120, orb: 8.5},
+                {name: "Opposition", angle: 180, orb: 8.5},
+            ];
+            natalChartInstance.drawAspects(data.points, data.points, aspectsConfig);
+
+            // Создаём легенду
+            const planetRu = {
+                'Sun': 'Солнце', 'Moon': 'Луна', 'Mercury': 'Меркурий',
+                'Venus': 'Венера', 'Mars': 'Марс', 'Jupiter': 'Юпитер',
+                'Saturn': 'Сатурн', 'Uranus': 'Уран', 'Neptune': 'Нептун',
+                'Pluto': 'Плутон', 'NNode': 'Сев.Узел', 'Lilith': 'Лилит'
+            };
+
+            const signRu = [
+                'Овен', 'Телец', 'Близнецы', 'Рак', 'Лев', 'Дева',
+                'Весы', 'Скорпион', 'Стрелец', 'Козерог', 'Водолей', 'Рыбы'
+            ];
+
+            let legendHtml = '<div class="legend-title">Положение планет</div><div class="legend-items">';
+            for (const point of data.points) {
+                const signIndex = Math.floor(point.angle / 30);
+                const degreeInSign = (point.angle % 30).toFixed(1);
+                const ruName = planetRu[point.name] || point.name;
+                const ruSign = signRu[signIndex];
+                const retroMark = point.isRetrograde ? ' ℞' : '';
+
+                legendHtml += `
+                    <div class="legend-item">
+                        <span class="legend-planet">${ruName}${retroMark}</span>
+                        <span class="legend-position">${degreeInSign}° ${ruSign}</span>
+                    </div>
+                `;
+            }
+            legendHtml += '</div>';
+            chartLegend.innerHTML = legendHtml;
+
+        } catch (e) {
+            console.error('Ошибка загрузки натальной карты:', e);
+            chartPaper.innerHTML = `
+                <div class="chart-error">
+                    <span class="error-icon">⚠️</span>
+                    <span class="error-text">Не удалось построить карту</span>
+                    <span class="error-hint">Проверьте, что введены данные рождения</span>
+                </div>
+            `;
+        }
+    }
+
+    // ============== МИНИ-КАЛЕНДАРЬ НА ГЛАВНОЙ ==============
+
+    async function loadMenuCalendar() {
+        const year = currentCalendarMonth.getFullYear();
+        const month = currentCalendarMonth.getMonth() + 1;
+        const cacheKey = `${year}-${month}`;
+
+        document.getElementById('menuCalMonthYear').textContent = `${monthNames[month - 1]} ${year}`;
+
+        // Проверяем локальный кэш
+        if (calendarCache.has(cacheKey)) {
+            const cachedData = calendarCache.get(cacheKey);
+            renderMenuCalendar(cachedData.days, year, month);
+            return;
+        }
+
+        // Показываем индикатор загрузки
+        showMenuCalendarLoading(true);
+
+        try {
+            const response = await fetch(`/api/forecast/${userId}/calendar?year=${year}&month=${month}`);
+
+            if (!response.ok) {
+                renderMenuCalendarEmpty(year, month);
+                return;
+            }
+
+            const data = await response.json();
+
+            // Сохраняем в кэш
+            calendarCache.set(cacheKey, data);
+
+            renderMenuCalendar(data.days, year, month);
+
+        } catch (e) {
+            console.error('Ошибка мини-календаря:', e);
+            renderMenuCalendarEmpty(year, month);
+        } finally {
+            showMenuCalendarLoading(false);
+        }
+    }
+
+    function showMenuCalendarLoading(show) {
+        const grid = document.getElementById('menuCalendarGrid');
+        if (show) {
+            grid.innerHTML = '<div class="calendar-loading"><div class="loader-small"></div><span>Загрузка...</span></div>';
+        }
+    }
+
+    function renderMenuCalendar(days, year, month) {
+        const grid = document.getElementById('menuCalendarGrid');
+        grid.innerHTML = '';
+
+        const firstDay = new Date(year, month - 1, 1);
+        let startDay = firstDay.getDay();
+        if (startDay === 0) startDay = 7;
+
+        // Пустые ячейки в начале
+        for (let i = 1; i < startDay; i++) {
+            const empty = document.createElement('div');
+            empty.className = 'calendar-day empty';
+            grid.appendChild(empty);
+        }
+
+        const daysInMonth = new Date(year, month, 0).getDate();
+        const today = new Date();
+
+        for (let d = 1; d <= daysInMonth; d++) {
+            const dayData = days.find(day => {
+                const parts = day.date.split('.');
+                return parseInt(parts[0]) === d;
+            });
+
+            const dayEl = document.createElement('div');
+            dayEl.className = 'calendar-day';
+
+            // Проверяем, заблокирован ли день
+            const isLocked = dayData && dayData.locked;
+
+            if (isLocked) {
+                dayEl.classList.add('locked');
+            } else if (dayData && dayData.mood && dayData.mood !== 'locked') {
+                dayEl.classList.add(dayData.mood);
+            }
+
+            if (year === today.getFullYear() &&
+                month - 1 === today.getMonth() &&
+                d === today.getDate()) {
+                dayEl.classList.add('today');
+            }
+
+            const dayNum = document.createElement('span');
+            dayNum.textContent = d;
+            dayEl.appendChild(dayNum);
+
+            // Точка только для незаблокированных
+            if (!isLocked && dayData && dayData.mood && dayData.mood !== 'locked') {
+                const dot = document.createElement('div');
+                dot.className = 'dot';
+                dayEl.appendChild(dot);
+            }
+
+            // Клик: только для незаблокированных дней
+            if (isLocked) {
+                dayEl.onclick = () => {
+                    haptic('error');
+                    showToast('Продлите подписку для доступа к этому дню');
+                };
+            } else {
+                dayEl.onclick = async () => {
+                    currentDate = new Date(year, month - 1, d);
+                    await loadForecast(currentDate);
+                    haptic('medium');
+                };
+            }
+
+            grid.appendChild(dayEl);
+        }
+    }
+
+    function renderMenuCalendarEmpty(year, month) {
+        const grid = document.getElementById('menuCalendarGrid');
+        grid.innerHTML = '';
+
+        const firstDay = new Date(year, month - 1, 1);
+        let startDay = firstDay.getDay();
+        if (startDay === 0) startDay = 7;
+
+        for (let i = 1; i < startDay; i++) {
+            const empty = document.createElement('div');
+            empty.className = 'calendar-day empty';
+            grid.appendChild(empty);
+        }
+
+        const daysInMonth = new Date(year, month, 0).getDate();
+        const today = new Date();
+
+        for (let d = 1; d <= daysInMonth; d++) {
+            const dayEl = document.createElement('div');
+            dayEl.className = 'calendar-day neutral';
+
+            if (year === today.getFullYear() &&
+                month - 1 === today.getMonth() &&
+                d === today.getDate()) {
+                dayEl.classList.add('today');
+            }
+
+            dayEl.textContent = d;
+
+            dayEl.onclick = async () => {
+                currentDate = new Date(year, month - 1, d);
+                await loadForecast(currentDate);
+                haptic('medium');
+            };
+
+            grid.appendChild(dayEl);
+        }
+    }
+
+    async function loadSettings() {
+        try {
+            const headers = {};
+            if (tg && tg.initData) {
+                headers['X-Telegram-Init-Data'] = tg.initData;
+            }
+            const response = await fetch(`/api/user/${userId}/settings`, { headers });
+            if (response.ok) {
+                const settings = await response.json();
+                document.getElementById('forecastTimeValue').textContent = settings.forecast_time || '09:00';
+                document.getElementById('forecastToggle').checked = settings.forecast_enabled !== false;
+                document.getElementById('notificationsToggle').checked = settings.push_enabled || false;
+
+                // Выделяем выбранное время
+                document.querySelectorAll('.time-btn').forEach(btn => {
+                    btn.classList.toggle('selected', btn.dataset.time === settings.forecast_time);
+                });
+
+                // Заполняем данные пользователя на главном меню
+                if (settings.user_data) {
+                    document.getElementById('menuBirthDate').textContent = settings.user_data.birth_date || '—';
+                    document.getElementById('menuBirthTime').textContent = settings.user_data.birth_time || '—';
+                    document.getElementById('menuBirthPlace').textContent = settings.user_data.birth_place || '—';
+                    document.getElementById('menuResidence').textContent = settings.user_data.residence || '—';
+                }
+            }
+        } catch (e) {
+            console.error('Ошибка загрузки настроек:', e);
+        }
+    }
+
+    function getAuthHeaders() {
+        const headers = { 'Content-Type': 'application/json' };
+        if (tg && tg.initData) {
+            headers['X-Telegram-Init-Data'] = tg.initData;
+        }
+        return headers;
+    }
+
+    async function saveForecastTime(time) {
+        try {
+            const response = await fetch(`/api/user/${userId}/settings`, {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({ forecast_time: time })
+            });
+            if (response.ok) {
+                showToast(`Время прогноза: ${time}`);
+            } else {
+                showToast('Не удалось сохранить', true);
+            }
+        } catch (e) {
+            console.error('Ошибка сохранения времени:', e);
+            showToast('Ошибка сохранения', true);
+        }
+    }
+
+    async function saveForecastEnabled(enabled) {
+        try {
+            const response = await fetch(`/api/user/${userId}/settings`, {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({ forecast_enabled: enabled })
+            });
+            if (response.ok) {
+                showToast(enabled ? 'Утренний прогноз включён' : 'Утренний прогноз выключен');
+            } else {
+                showToast('Не удалось сохранить', true);
+            }
+        } catch (e) {
+            console.error('Ошибка сохранения настроек:', e);
+            showToast('Ошибка сохранения', true);
+        }
+    }
+
+    async function saveNotificationsSetting(enabled) {
+        try {
+            const response = await fetch(`/api/user/${userId}/settings`, {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({ push_enabled: enabled })
+            });
+            if (response.ok) {
+                showToast(enabled ? 'Важные транзиты включены' : 'Важные транзиты выключены');
+            } else {
+                showToast('Не удалось сохранить', true);
+            }
+        } catch (e) {
+            console.error('Ошибка сохранения настроек:', e);
+            showToast('Ошибка сохранения', true);
+        }
+    }
+
+    // ============== РЕНДЕРИНГ ==============
+
+    function renderForecast(data) {
+        document.getElementById('dayName').textContent = data.day_name;
+        document.getElementById('dateText').textContent = data.date;
+
+        const moodCard = document.getElementById('moodCard');
+        moodCard.className = 'mood-card ' + data.mood;
+        document.getElementById('moodEmoji').textContent = moodEmoji[data.mood] || '😌';
+        document.getElementById('moodTitle').textContent = moodTitle[data.mood] || 'День';
+        document.getElementById('moodSubtitle').textContent = moodSubtitle[data.mood] || '';
+
+        const summaryText = data.summary || 'Прогноз формируется...';
+        document.getElementById('forecastText').textContent = summaryText;
+
+        // Сохраняем прогноз для контекста вопросов
+        currentForecastSummary = summaryText;
+
+        // Очищаем историю вопросов при смене дня
+        clearQuestionHistory();
+
+        renderTransits(data.transits || []);
+    }
+
+    function renderTransits(transits) {
+        const container = document.getElementById('transitsList');
+        container.innerHTML = '';
+
+        if (!transits || transits.length === 0) {
+            container.innerHTML = '<p class="empty-state">Нет значимых транзитов на этот день</p>';
+            return;
+        }
+
+        transits.forEach((tr, i) => {
+            const h = parseInt(tr.time.split(':')[0]);
+            const startH = Math.max(0, h - 2);
+            const timeRange = `${String(startH).padStart(2, '0')}:00 — ${tr.time}`;
+
+            const tSym = planetSymbols[tr.transit_planet] || tr.transit_planet;
+            const nSym = planetSymbols[tr.natal_planet] || tr.natal_planet;
+
+            const item = document.createElement('div');
+            item.className = `timeline-item ${tr.nature}`;
+            item.style.animationDelay = `${i * 0.05}s`;
+
+            item.innerHTML = `
+                <div class="timeline-time">${sanitize(timeRange)}</div>
+                <div class="timeline-planets">
+                    <span class="planet-symbol">${sanitize(tSym)}</span>
+                    <span class="aspect-symbol">${sanitize(tr.aspect_symbol)}</span>
+                    <span class="planet-symbol">${sanitize(nSym)}</span>
+                </div>
+                <div class="timeline-meaning">${sanitize(tr.aspect)} — ${sanitize(tr.formula)}</div>
+                <div class="timeline-details">
+                    ${tr.meanings.map(m => `<div class="detail-row"><span class="detail-value">• ${sanitize(m)}</span></div>`).join('')}
+                </div>
+            `;
+
+            item.onclick = () => {
+                item.classList.toggle('expanded');
+                haptic('light');
+            };
+
+            container.appendChild(item);
+        });
+    }
+
+    function renderCalendar(days, year, month) {
+        const grid = document.getElementById('calendarGrid');
+        grid.innerHTML = '';
+
+        const firstDay = new Date(year, month - 1, 1);
+        let startDay = firstDay.getDay();
+        if (startDay === 0) startDay = 7;
+
+        for (let i = 1; i < startDay; i++) {
+            const empty = document.createElement('div');
+            empty.className = 'calendar-day empty';
+            grid.appendChild(empty);
+        }
+
+        const daysInMonth = new Date(year, month, 0).getDate();
+        const today = new Date();
+
+        for (let d = 1; d <= daysInMonth; d++) {
+            const dayData = days.find(day => {
+                const parts = day.date.split('.');
+                return parseInt(parts[0]) === d;
+            });
+
+            const dayEl = document.createElement('div');
+            dayEl.className = 'calendar-day';
+
+            // Проверяем, заблокирован ли день
+            const isLocked = dayData && dayData.locked;
+
+            if (isLocked) {
+                dayEl.classList.add('locked');
+            } else if (dayData && dayData.mood && dayData.mood !== 'locked') {
+                dayEl.classList.add(dayData.mood);
+            }
+
+            if (year === today.getFullYear() &&
+                month - 1 === today.getMonth() &&
+                d === today.getDate()) {
+                dayEl.classList.add('today');
+            }
+
+            // Число дня
+            const dayNum = document.createElement('span');
+            dayNum.textContent = d;
+            dayEl.appendChild(dayNum);
+
+            // Точка-индикатор настроения (только для незаблокированных)
+            if (!isLocked && dayData && dayData.mood && dayData.mood !== 'locked') {
+                const dot = document.createElement('div');
+                dot.className = 'dot';
+                dayEl.appendChild(dot);
+            }
+
+            // Клик: только для незаблокированных дней
+            if (isLocked) {
+                dayEl.onclick = () => {
+                    haptic('error');
+                    showToast('Продлите подписку для доступа к этому дню');
+                };
+            } else {
+                dayEl.onclick = async () => {
+                    currentDate = new Date(year, month - 1, d);
+                    await loadForecast(currentDate);
+                    haptic('medium');
+                };
+            }
+
+            grid.appendChild(dayEl);
+        }
+    }
+
+    function renderCalendarWithoutData(year, month) {
+        const grid = document.getElementById('calendarGrid');
+        grid.innerHTML = '';
+
+        const firstDay = new Date(year, month - 1, 1);
+        let startDay = firstDay.getDay();
+        if (startDay === 0) startDay = 7;
+
+        for (let i = 1; i < startDay; i++) {
+            const empty = document.createElement('div');
+            empty.className = 'calendar-day empty';
+            grid.appendChild(empty);
+        }
+
+        const daysInMonth = new Date(year, month, 0).getDate();
+        const today = new Date();
+
+        for (let d = 1; d <= daysInMonth; d++) {
+            const dayEl = document.createElement('div');
+            dayEl.className = 'calendar-day neutral';
+
+            if (year === today.getFullYear() &&
+                month - 1 === today.getMonth() &&
+                d === today.getDate()) {
+                dayEl.classList.add('today');
+            }
+
+            dayEl.textContent = d;
+
+            dayEl.onclick = async () => {
+                currentDate = new Date(year, month - 1, d);
+                await loadForecast(currentDate);
+                haptic('medium');
+            };
+
+            grid.appendChild(dayEl);
+        }
+    }
+
+    // ============== УТИЛИТЫ ==============
+
+    function showScreen(screenId) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById(screenId).classList.add('active');
+    }
+
+    function showLoading(text) {
+        document.getElementById('loadingText').textContent = text || 'Загрузка...';
+        showScreen('loading');
+    }
+
+    // Последнее действие для retry
+    let lastAction = null;
+
+    function showError(message, title = 'Ошибка', canRetry = false) {
+        // Haptic feedback при ошибке
+        haptic('error');
+
+        document.getElementById('errorTitle').textContent = title;
+        document.getElementById('errorText').textContent = message;
+        document.getElementById('retryBtn').style.display = canRetry ? 'block' : 'none';
+        showScreen('error');
+    }
+
+    function retryLastAction() {
+        if (lastAction && typeof lastAction === 'function') {
+            haptic('medium');
+            lastAction();
+        } else {
+            showScreen('menu');
+        }
+    }
+
+    function formatDateForApi(date) {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    }
+
+    function haptic(style) {
+        if (tg?.HapticFeedback) {
+            // Notification types: error, success, warning
+            if (['error', 'success', 'warning'].includes(style)) {
+                tg.HapticFeedback.notificationOccurred(style);
+            } else {
+                // Impact types: light, medium, heavy, rigid, soft
+                tg.HapticFeedback.impactOccurred(style);
+            }
+        }
+    }
+
+    // XSS защита — санитизация HTML
+    function sanitize(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    // Toast уведомления
+    function showToast(message, isError = false) {
+        // Haptic feedback при показе toast
+        haptic(isError ? 'error' : 'success');
+
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = 'toast' + (isError ? ' error' : '');
+        toast.textContent = message;
+        container.appendChild(toast);
+
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        }, 3000);
+    }
+    </script>
+
+    <!-- Toast контейнер -->
+    <div class="toast-container" id="toast-container"></div>
+</body>
+</html>

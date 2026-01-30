@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест прогноза</title>
+    <link rel="stylesheet" href="/webapp/css/style.css">
+</head>
+<body>
+    <div id="app" class="screen active" style="padding: 20px;">
+        <h2>Загрузка...</h2>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        async function test() {
+            const result = document.getElementById('result');
+            try {
+                const response = await fetch('/api/demo/forecast/today');
+                const data = await response.json();
+
+                let html = `
+                    <div class="mood-card ${data.mood}">
+                        <div class="mood-emoji">😊</div>
+                        <div class="mood-title">${data.day_name}</div>
+                        <div class="mood-subtitle">${data.date}</div>
+                    </div>
+                    <div class="forecast-section">
+                        <div class="section-header">
+                            <span class="section-icon">✨</span>
+                            <span class="section-title">Прогноз</span>
+                        </div>
+                        <div class="forecast-text">${data.summary}</div>
+                    </div>
+                    <div class="timeline-section">
+                        <div class="section-header">
+                            <span class="section-icon">🌟</span>
+                            <span class="section-title">Транзиты</span>
+                        </div>
+                        <div class="timeline">
+                `;
+
+                for (const tr of data.transits) {
+                    html += `
+                        <div class="timeline-item ${tr.nature}">
+                            <div class="timeline-time">${tr.time}</div>
+                            <div class="timeline-planets">
+                                <span class="planet-symbol">${tr.transit_planet}</span>
+                                <span class="aspect-symbol">${tr.aspect_symbol}</span>
+                                <span class="planet-symbol">${tr.natal_planet}</span>
+                            </div>
+                            <div class="timeline-meaning">${tr.aspect} — ${tr.formula}</div>
+                        </div>
+                    `;
+                }
+
+                html += '</div></div>';
+                result.innerHTML = html;
+                document.querySelector('h2').textContent = 'Готово!';
+
+            } catch (e) {
+                result.innerHTML = '<p style="color:red;">Ошибка: ' + e.message + '</p>';
+            }
+        }
+
+        test();
+    </script>
+</body>
+</html>
