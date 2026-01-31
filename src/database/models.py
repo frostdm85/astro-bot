@@ -131,11 +131,16 @@ class User(BaseModel):
         ).order_by(Subscription.expires_at.desc()).first()
 
     def has_active_subscription(self) -> bool:
-        """Есть ли активная подписка"""
+        """Есть ли активная подписка (оплачена и срок не истёк)"""
         sub = self.get_subscription()
         if not sub:
             return False
-        return sub.status in ['active', 'expiring_soon'] and sub.expires_at > datetime.now()
+        # Проверяем: статус активен, срок не истёк, И есть payment_id (оплачена)
+        return (
+            sub.status in ['active', 'expiring_soon'] and
+            sub.expires_at > datetime.now() and
+            sub.payment_id is not None
+        )
 
     def get_questions_remaining(self) -> int:
         """Сколько вопросов осталось сегодня"""
@@ -172,6 +177,7 @@ class Subscription(BaseModel):
     # Платёж
     payment_id = CharField(null=True)
     amount = DecimalField(decimal_places=2, null=True)
+    plan = CharField(null=True)  # 1_month, 3_months, 6_months, 1_year
 
     created_at = DateTimeField(default=datetime.now)
 
@@ -204,6 +210,11 @@ class Subscription(BaseModel):
             self.expires_at = now + timedelta(days=days)
 
         self.status = "active"
+
+        # Если payment_id не был задан - значит это назначение админом
+        if not self.payment_id:
+            self.payment_id = "admin_granted"
+
         self.save()
 
     def cancel(self):

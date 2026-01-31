@@ -35,6 +35,34 @@ DB_PATH = os.getenv("DB_PATH", str(BASE_DIR / "astro_bot.sqlite"))
 SUBSCRIPTION_PRICE = int(os.getenv("SUBSCRIPTION_PRICE", 1990))
 SUBSCRIPTION_DAYS = int(os.getenv("SUBSCRIPTION_DAYS", 30))
 
+# Тарифные планы
+SUBSCRIPTION_PLANS = {
+    "1_month": {
+        "price": 1990,
+        "days": 30,
+        "label": "1 месяц",
+        "emoji": "📅"
+    },
+    "3_months": {
+        "price": 5500,
+        "days": 90,
+        "label": "3 месяца",
+        "emoji": "📆"
+    },
+    "6_months": {
+        "price": 10000,
+        "days": 180,
+        "label": "6 месяцев",
+        "emoji": "🗓️"
+    },
+    "1_year": {
+        "price": 19000,
+        "days": 365,
+        "label": "1 год",
+        "emoji": "📖"
+    }
+}
+
 # Лимиты
 QUESTIONS_PER_DAY = int(os.getenv("QUESTIONS_PER_DAY", 10))
 
