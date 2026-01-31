@@ -8,6 +8,7 @@
 """
 
 import logging
+import asyncio
 
 from pyrogram import Client
 from pyrogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
@@ -125,33 +126,40 @@ async def handle_subscription_pay(callback: CallbackQuery):
 
 async def handle_plan_selection(callback: CallbackQuery, plan_id: str):
     """Обработка выбора тарифа и создание платежа"""
-    await callback.answer()
-
     # Получаем данные тарифа
     plan_data = SUBSCRIPTION_PLANS.get(plan_id)
     if not plan_data:
-        await callback.answer("❌ Неверный тариф", show_alert=True)
+        await callback.answer("Неверный тариф", show_alert=True)
         return
+
+    # Отвечаем на callback с индикацией загрузки
+    await callback.answer("Создаю платёж...")
 
     user_id = callback.from_user.id
     amount = plan_data["price"]
     days = plan_data["days"]
     label = plan_data["label"]
 
-    # Создаём платёж в YooKassa
-    payment_info = yookassa_service.create_payment(
-        user_id=user_id,
-        amount=amount,
-        description=f"Подписка Астро-бот на {label.lower()}"
-    )
+    # Создаём платёж в YooKassa (синхронный вызов в отдельном потоке,
+    # чтобы не блокировать event loop бота)
+    try:
+        payment_info = await asyncio.to_thread(
+            yookassa_service.create_payment,
+            user_id=user_id,
+            amount=amount,
+            description=f"Подписка Астро-бот на {label.lower()}"
+        )
+    except Exception as e:
+        logger.error(f"Исключение при создании платежа для user {user_id}: {e}", exc_info=True)
+        payment_info = None
 
     if not payment_info:
         await callback.message.edit_text(
             PAYMENT_ERROR_TEXT.format(admin=ADMIN_USERNAME),
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton(f"👨‍💻 Связаться с {ADMIN_USERNAME}", url=f"https://t.me/{ADMIN_USERNAME}")],
-                [InlineKeyboardButton("🔄 Попробовать снова", callback_data="subscription:pay")],
-                [InlineKeyboardButton("◀️ Назад", callback_data="subscription:info")]
+                [InlineKeyboardButton(f"Связаться с @{ADMIN_USERNAME}", url=f"https://t.me/{ADMIN_USERNAME}")],
+                [InlineKeyboardButton("Попробовать снова", callback_data="subscription:pay")],
+                [InlineKeyboardButton("Назад", callback_data="subscription:info")]
             ])
         )
         return
@@ -160,28 +168,19 @@ async def handle_plan_selection(callback: CallbackQuery, plan_id: str):
     try:
         user = User.get(User.telegram_id == user_id)
 
-        # Создаём или обновляем запись подписки
-        subscription, created = Subscription.get_or_create(
+        # Всегда создаём новую запись подписки для каждого платежа
+        subscription = Subscription.create(
             user=user,
-            defaults={
-                "payment_id": payment_info["payment_id"],
-                "amount": amount,
-                "plan": plan_id,
-                "is_active": False
-            }
+            payment_id=payment_info["payment_id"],
+            amount=amount,
+            plan=plan_id,
+            status="pending"
         )
-
-        if not created:
-            subscription.payment_id = payment_info["payment_id"]
-            subscription.amount = amount
-            subscription.plan = plan_id
-            subscription.is_active = False
-            subscription.save()
 
         logger.info(f"Создан платёж {payment_info['payment_id']} для user {user_id}, тариф {plan_id}")
 
     except Exception as e:
-        logger.error(f"Ошибка сохранения подписки для user {user_id}: {e}")
+        logger.error(f"Ошибка сохранения подписки для user {user_id}: {e}", exc_info=True)
 
     # Показываем ссылку на оплату
     await callback.message.edit_text(
@@ -191,8 +190,8 @@ async def handle_plan_selection(callback: CallbackQuery, plan_id: str):
             days=days
         ),
         reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("💳 Перейти к оплате", url=payment_info["confirmation_url"])],
-            [InlineKeyboardButton("◀️ Назад", callback_data="subscription:pay")]
+            [InlineKeyboardButton("Перейти к оплате", url=payment_info["confirmation_url"])],
+            [InlineKeyboardButton("Назад", callback_data="subscription:pay")]
         ])
     )
 
@@ -209,14 +208,20 @@ def register_handlers(app: Client):
     async def subscription_callback_router(client: Client, callback: CallbackQuery):
         """Роутер callback-кнопок подписки"""
         data = callback.data
+        logger.info(f"Получен callback подписки: {data} от user {callback.from_user.id}")
 
-        if data == "subscription:info":
-            await handle_subscription_info(callback)
-        elif data == "subscription:pay":
-            await handle_subscription_pay(callback)
-        elif data.startswith("subscription:plan:"):
-            plan_id = data.replace("subscription:plan:", "")
-            await handle_plan_selection(callback, plan_id)
+        try:
+            if data == "subscription:info":
+                await handle_subscription_info(callback)
+            elif data == "subscription:pay":
+                await handle_subscription_pay(callback)
+            elif data.startswith("subscription:plan:"):
+                plan_id = data.replace("subscription:plan:", "")
+                logger.info(f"Выбран тариф: {plan_id}")
+                await handle_plan_selection(callback, plan_id)
+        except Exception as e:
+            logger.error(f"Ошибка в subscription callback {data}: {e}", exc_info=True)
+            await callback.answer("❌ Произошла ошибка", show_alert=True)
 
     app.add_handler(CallbackQueryHandler(subscription_callback_router, subscription_callback_filter))
 

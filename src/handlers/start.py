@@ -6,6 +6,7 @@
 """
 
 import logging
+import asyncio
 from datetime import datetime
 
 from pyrogram import Client, filters
@@ -648,12 +649,17 @@ async def callback_handler(client: Client, callback: CallbackQuery):
             )
             return
 
-        # Создаём платёж
-        payment_result = yookassa_service.create_payment(
-            user_id=user.telegram_id,
-            amount=SUBSCRIPTION_PRICE,
-            description=f"Подписка Астро-бот для {user.display_name}"
-        )
+        # Создаём платёж (в отдельном потоке, чтобы не блокировать event loop)
+        try:
+            payment_result = await asyncio.to_thread(
+                yookassa_service.create_payment,
+                user_id=user.telegram_id,
+                amount=SUBSCRIPTION_PRICE,
+                description=f"Подписка Астро-бот для {user.display_name}"
+            )
+        except Exception as e:
+            logger.error(f"Исключение при создании платежа: {e}", exc_info=True)
+            payment_result = None
 
         if not payment_result:
             await callback.message.edit_text(
@@ -692,8 +698,14 @@ async def callback_handler(client: Client, callback: CallbackQuery):
             )
             return
 
-        # Проверяем статус в YooKassa
-        status = yookassa_service.check_payment_status(pending_sub.payment_id)
+        # Проверяем статус в YooKassa (в отдельном потоке)
+        try:
+            status = await asyncio.to_thread(
+                yookassa_service.check_payment_status, pending_sub.payment_id
+            )
+        except Exception as e:
+            logger.error(f"Исключение при проверке статуса платежа: {e}", exc_info=True)
+            status = None
 
         if not status:
             await callback.message.edit_text(
@@ -736,7 +748,12 @@ async def callback_handler(client: Client, callback: CallbackQuery):
         ).order_by(Subscription.created_at.desc()).first()
 
         if pending_sub and pending_sub.payment_id:
-            yookassa_service.cancel_payment(pending_sub.payment_id)
+            try:
+                await asyncio.to_thread(
+                    yookassa_service.cancel_payment, pending_sub.payment_id
+                )
+            except Exception as e:
+                logger.error(f"Ошибка отмены платежа: {e}")
             pending_sub.status = "expired"
             pending_sub.save()
 
