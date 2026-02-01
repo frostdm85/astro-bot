@@ -68,38 +68,61 @@ async def notify_admin_data_submitted(client: Client, user: User, has_paid: bool
 
 async def notify_admin_payment(client: Client, user: User):
     """
-    Уведомить админа об оплате подписки
+    Уведомить админа об оплате подписки с ПОЛНОЙ анкетой
 
     Args:
         client: Pyrogram Client
         user: User модель
     """
     try:
-        # Проверяем, заполнил ли пользователь данные
-        data_status = "✅ Данные заполнены" if user.user_data_submitted else "❌ Данные не заполнены"
+        # Получаем активную подписку
+        subscription = user.get_subscription()
 
-        # Формируем сообщение с краткой информацией
-        data_preview = ""
-        if user.user_data_submitted:
-            data_preview = f"""
-📅 Дата рождения: {user.birth_date.strftime('%d.%m.%Y') if user.birth_date else '—'}
-⏰ Время: {user.birth_time.strftime('%H:%M') if user.birth_time else '—'}
-📍 Город рождения: {user.birth_place or '—'}
-🏠 Город проживания: {user.residence_place or '—'}"""
+        # Формируем сообщение
+        message = f"📝 Новый пользователь оплатил подписку\n\n"
+        message += f"👤 Пользователь:\n"
+        message += f"• ID: {user.telegram_id}\n"
+        message += f"• Username: @{user.username}\n" if user.username else ""
+        message += f"• Имя: {user.first_name}\n\n"
 
-        message = f"""💳 <b>Новая оплата подписки!</b>
+        # Данные рождения
+        if user.birth_date or user.birth_time or user.birth_place:
+            message += f"📅 Данные рождения:\n"
+            message += f"• Дата: {user.birth_date.strftime('%d.%m.%Y') if user.birth_date else '—'}\n"
+            message += f"• Время: {user.birth_time.strftime('%H:%M') if user.birth_time else '—'}\n"
+            message += f"• Город: {user.birth_place or '—'}\n\n"
 
-👤 <b>Пользователь:</b>
-• ID: <code>{user.telegram_id}</code>
-• Username: @{user.username or 'нет'}
-• Имя: {user.first_name}
+        # Текущий город
+        if user.residence_place:
+            message += f"🏠 Текущий город: {user.residence_place}\n\n"
 
-📝 <b>Статус данных:</b> {data_status}{data_preview}
+        # Брак
+        if user.marriage_date or user.marriage_city:
+            message += f"💍 Брак:\n"
+            message += f"• Дата: {user.marriage_date.strftime('%d.%m.%Y') if user.marriage_date else '—'}\n"
+            message += f"• Город: {user.marriage_city or '—'}\n\n"
 
-✅ <b>Подписка активирована!</b>"""
+        # Статус оплаты
+        if subscription:
+            plan_labels = {
+                "1_month": "1 месяц",
+                "3_months": "3 месяца",
+                "6_months": "6 месяцев",
+                "1_year": "1 год"
+            }
+            plan_label = plan_labels.get(subscription.plan, subscription.plan)
+            message += f"💳 Статус оплаты: ✅ ОПЛАЧЕНО\n"
+            message += f"• Тариф: {plan_label}\n"
+            message += f"• Сумма: {subscription.amount} ₽\n"
+            message += f"• Действует до: {subscription.expires_at.strftime('%d.%m.%Y') if subscription.expires_at else '—'}\n\n"
 
+        # Время оплаты
+        message += f"🕐 Оплачено: {datetime.now().strftime('%d.%m.%Y %H:%M')}\n"
+
+        # Отправляем админу
         await client.send_message(ADMIN_ID, message)
-        logger.info(f"Админ уведомлён об оплате от пользователя {user.telegram_id}")
+        logger.info(f"Уведомление об оплате отправлено админу для пользователя {user.telegram_id}")
 
     except Exception as e:
-        logger.error(f"Ошибка уведомления админа об оплате: {e}")
+        logger.error(f"Ошибка отправки уведомления админу: {e}")
+        raise

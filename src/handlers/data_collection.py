@@ -18,6 +18,7 @@ from pyrogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineK
 from database.models import User
 from services.data_collection_service import notify_admin_data_submitted
 from config import DOCS_PD_CONSENT, DOCS_PRIVACY_POLICY
+from utils.keyboards import get_data_complete_keyboard
 
 logger = logging.getLogger(__name__)
 
@@ -364,11 +365,12 @@ async def process_data_message(client: Client, message: Message, user: User) -> 
             await save_user_data(client, user, data)
             clear_data_state(user.telegram_id)
 
+            # Проверяем наличие активной подписки
+            has_subscription = user.has_active_subscription()
+
             await message.reply(
                 DATA_COMPLETE_TEXT,
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("🏠 В главное меню", callback_data="back_main")]
-                ])
+                reply_markup=get_data_complete_keyboard(has_subscription)
             )
         except ValueError as e:
             logger.error(f"Валидация данных не прошла для user {user.telegram_id}: {e}")
@@ -399,11 +401,12 @@ async def handle_skip_marriage(client: Client, callback: CallbackQuery, user: Us
         await save_user_data(client, user, data)
         clear_data_state(user.telegram_id)
 
+        # Проверяем наличие активной подписки
+        has_subscription = user.has_active_subscription()
+
         await callback.message.edit_text(
             DATA_COMPLETE_TEXT,
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🏠 В главное меню", callback_data="back_main")]
-            ])
+            reply_markup=get_data_complete_keyboard(has_subscription)
         )
     except ValueError as e:
         logger.error(f"Валидация данных не прошла для user {user.telegram_id}: {e}")
@@ -437,11 +440,12 @@ async def handle_skip_marriage_city(client: Client, callback: CallbackQuery, use
         await save_user_data(client, user, data)
         clear_data_state(user.telegram_id)
 
+        # Проверяем наличие активной подписки
+        has_subscription = user.has_active_subscription()
+
         await callback.message.edit_text(
             DATA_COMPLETE_TEXT,
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🏠 В главное меню", callback_data="back_main")]
-            ])
+            reply_markup=get_data_complete_keyboard(has_subscription)
         )
     except ValueError as e:
         logger.error(f"Валидация данных не прошла для user {user.telegram_id}: {e}")
@@ -486,9 +490,10 @@ async def save_user_data(client: Client, user: User, data: dict):
     user.marriage_date = data.get("marriage_date")
     user.marriage_city = data.get("marriage_city")
 
-    # Устанавливаем флаг пользовательского заполнения
+    # Устанавливаем флаги заполнения данных
     user.user_data_submitted = True
     user.user_data_submitted_at = datetime.now()
+    user.natal_data_complete = True  # Данные полностью заполнены
 
     # КРИТИЧНО: Сохраняем ПЕРЕД уведомлением админа
     user.save()

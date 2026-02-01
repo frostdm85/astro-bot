@@ -18,6 +18,7 @@ from utils.keyboards import (
     get_welcome_keyboard,
     get_no_subscription_keyboard,
     get_main_menu_keyboard,
+    get_after_payment_keyboard,
     get_help_keyboard,
     get_period_keyboard,
     get_calendar_keyboard,
@@ -27,6 +28,7 @@ from utils.keyboards import (
 )
 from config import WEBAPP_URL
 from services import yookassa_service
+from services.data_collection_service import notify_admin_payment
 from handlers.forecast import (
     handle_forecast_today,
     handle_forecast_period,
@@ -717,11 +719,27 @@ async def callback_handler(client: Client, callback: CallbackQuery):
         if status["status"] == "succeeded" and status["paid"]:
             # Активируем подписку
             pending_sub.activate()
-            questions_left = user.get_questions_remaining()
-            await callback.message.edit_text(
-                PAYMENT_SUCCESS_TEXT,
-                reply_markup=get_main_menu_keyboard(questions_left, user.telegram_id)
-            )
+
+            # Уведомляем админа об оплате
+            try:
+                await notify_admin_payment(callback._client, user)
+            except Exception as e:
+                logger.error(f"Ошибка уведомления админа об оплате: {e}")
+
+            # Проверяем, заполнил ли пользователь данные
+            if not user.user_data_submitted:
+                # Показываем кнопку "Заполнить данные"
+                await callback.message.edit_text(
+                    PAYMENT_SUCCESS_TEXT + "\n\n📝 <i>Теперь заполните ваши данные для получения прогнозов!</i>",
+                    reply_markup=get_after_payment_keyboard()
+                )
+            else:
+                # Данные уже заполнены, показываем главное меню
+                questions_left = user.get_questions_remaining()
+                await callback.message.edit_text(
+                    PAYMENT_SUCCESS_TEXT,
+                    reply_markup=get_main_menu_keyboard(questions_left, user.telegram_id)
+                )
 
         elif status["status"] == "pending":
             # Ещё не оплачен

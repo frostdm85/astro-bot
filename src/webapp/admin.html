@@ -497,6 +497,19 @@
         .input-modal-buttons .btn {
             flex: 1;
         }
+
+        /* Бейдж для обозначения оплаты через бота */
+        .payment-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            margin-left: 8px;
+            background: #e3f2fd;
+            color: #1976d2;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            vertical-align: middle;
+        }
     </style>
 </head>
 <body>
@@ -744,6 +757,7 @@
         let birthDatePicker = null;
         let birthTimeMask = null;
         let geoSearchTimeout = null;
+        let currentViewedUserId = null;  // ID просматриваемого пользователя (для обновления после редактирования)
 
         // API
         async function api(endpoint, options = {}) {
@@ -1040,6 +1054,9 @@
         async function openUserDetail(telegramId) {
             if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
 
+            // Сохраняем ID для обновления после редактирования
+            currentViewedUserId = telegramId;
+
             try {
                 const user = await api(`/users/${telegramId}`);
 
@@ -1049,6 +1066,10 @@
                 if (user.subscription) {
                     if (user.subscription.status === 'active' || user.subscription.status === 'expiring_soon') {
                         subStatus = `Активна до ${user.subscription.expires_at}`;
+                        // Добавляем бейдж если оплачено через бота
+                        if (user.subscription.paid_via_bot) {
+                            subStatus += `<span class="payment-badge">🤖 Через бота</span>`;
+                        }
                     } else {
                         subStatus = 'Истекла';
                     }
@@ -1112,7 +1133,7 @@
 
         // ========== РЕДАКТИРОВАНИЕ ==========
         function editUser(telegramId) {
-            closeModal('user-modal');
+            // НЕ закрываем user-modal - он должен остаться открытым для обновления после сохранения
 
             api(`/users/${telegramId}`).then(user => {
                 document.getElementById('edit-title').textContent = 'Редактировать';
@@ -1438,6 +1459,11 @@
                 closeModal('edit-modal');
                 loadUsers(currentFilter);
                 loadStats();
+
+                // Если редактировали существующего пользователя - обновляем его карточку
+                if (editId && currentViewedUserId == editId) {
+                    await openUserDetail(currentViewedUserId);
+                }
 
             } catch (e) {
                 showAlert('Ошибка: ' + e.message);

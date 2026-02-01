@@ -178,6 +178,7 @@ class Subscription(BaseModel):
     payment_id = CharField(null=True)
     amount = DecimalField(decimal_places=2, null=True)
     plan = CharField(null=True)  # 1_month, 3_months, 6_months, 1_year
+    paid_via_bot = BooleanField(default=True)  # Оплачено через бота (не через Mini App)
 
     created_at = DateTimeField(default=datetime.now)
 

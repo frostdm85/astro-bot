@@ -1911,7 +1911,8 @@ async def webapp_admin_get_user(
         "subscription": {
             "status": sub.status if sub else None,
             "expires_at": sub.expires_at.strftime("%d.%m.%Y") if sub and sub.expires_at else None,
-            "days_left": days_left
+            "days_left": days_left,
+            "paid_via_bot": sub.paid_via_bot if sub and hasattr(sub, 'paid_via_bot') else True
         } if sub else None
     }
 

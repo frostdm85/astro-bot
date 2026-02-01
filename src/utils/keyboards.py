@@ -97,6 +97,40 @@ def get_main_menu_keyboard(questions_left: int = 10, user_id: int = 0) -> Inline
     return InlineKeyboardMarkup(buttons)
 
 
+def get_after_payment_keyboard() -> InlineKeyboardMarkup:
+    """
+    Клавиатура после успешной оплаты (если данные не заполнены)
+    Показывает кнопку для перехода к заполнению анкеты
+    """
+    buttons = [
+        [InlineKeyboardButton("✏️ Заполнить данные", callback_data="start_onboarding")],
+        [InlineKeyboardButton("📄 Документы", callback_data="settings:privacy")]
+    ]
+    return InlineKeyboardMarkup(buttons)
+
+
+def get_data_complete_keyboard(has_subscription: bool) -> InlineKeyboardMarkup:
+    """
+    Клавиатура после заполнения данных
+
+    Если нет активной подписки - показывает кнопку "Оплатить подписку"
+    Если подписка есть - показывает кнопку "В главное меню"
+
+    Args:
+        has_subscription: есть ли активная подписка у пользователя
+    """
+    if not has_subscription:
+        buttons = [
+            [InlineKeyboardButton("💳 Оплатить подписку", callback_data="subscription:pay")],
+            [InlineKeyboardButton("🏠 В главное меню", callback_data="back_main")]
+        ]
+    else:
+        buttons = [
+            [InlineKeyboardButton("🏠 В главное меню", callback_data="back_main")]
+        ]
+    return InlineKeyboardMarkup(buttons)
+
+
 def get_period_keyboard() -> InlineKeyboardMarkup:
     """Выбор периода прогноза"""
     buttons = [
